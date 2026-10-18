@@ -200,7 +200,10 @@ export function Capture() {
         ) : (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, background: 'var(--fill)', borderRadius: 28, overflow: 'hidden' }}>
             <VoiceOrb rec={rec} colors={p.card ? [p.card[0], '#ffd3e2', p.card[1], '#d9ccfa', '#f6f2ff'] : ENVELOPES[0].c} />
-            <span style={{ fontSize: 30, fontVariantNumeric: 'tabular-nums', fontWeight: 300 }}>0:{String(secs).padStart(2, '0')}</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 30, fontVariantNumeric: 'tabular-nums', fontWeight: 300, color: rec ? '#e5484d' : 'var(--ink)', transition: 'color .3s ease' }}>
+              <span aria-hidden="true" style={{ width: rec ? 10 : 0, height: 10, borderRadius: 5, background: '#e5484d', marginLeft: rec ? 0 : -10, transition: 'width .25s ease, margin .25s ease', animation: rec ? 'recDot 1.2s ease-in-out infinite' : 'none' }} />
+              0:{String(secs).padStart(2, '0')}
+            </span>
           </div>
         )}
         <p className="small" style={{ textAlign: 'center' }}>{mode === 'photo' ? 'Mess is welcome. This isn’t proof, just a peek.' : 'Talk like you would on the phone. A minute is plenty.'}</p>
@@ -216,8 +219,10 @@ export function Capture() {
               <span style={{ display: 'block', width: '100%', height: '100%', borderRadius: '50%', background: 'var(--ink)' }} />
             </button>
           ) : (
-            <button aria-label={rec ? 'Stop and review' : 'Start recording'} onClick={() => (rec ? (setRec(false), done()) : setRec(true))} style={{ width: 74, height: 74, borderRadius: 37, border: 'none', background: 'var(--ink)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Icon name={rec ? 'stop' : 'voice'} size={26} />
+            <button aria-label={rec ? 'Stop and review' : 'Start recording'} onClick={() => (rec ? (setRec(false), done()) : setRec(true))} style={{ position: 'relative', width: 74, height: 74, borderRadius: 37, border: 'none', background: 'var(--ink)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: rec ? 'recRing 1.4s ease-out infinite' : 'none' }}>
+              {/* The mic shrinks away and a rounded stop square grows in its place while recording. */}
+              <span style={{ display: 'flex', transform: rec ? 'scale(.3)' : 'scale(1)', opacity: rec ? 0 : 1, transition: 'transform .3s cubic-bezier(.2,.8,.2,1), opacity .2s ease' }}><Icon name="voice" size={26} /></span>
+              <span aria-hidden="true" style={{ position: 'absolute', left: '50%', top: '50%', width: rec ? 24 : 10, height: rec ? 24 : 10, borderRadius: rec ? 7 : 5, background: '#ff6b6b', transform: 'translate(-50%, -50%)', opacity: rec ? 1 : 0, transition: 'width .35s cubic-bezier(.3,1.4,.4,1), height .35s cubic-bezier(.3,1.4,.4,1), border-radius .35s ease, opacity .2s ease' }} />
             </button>
           )}
           {mode === 'photo' && taken ? null : mode === 'photo' ? <span style={{ justifySelf: 'end' }}><IconButton icon="gallery" label="Choose from library" onClick={() => library.current && library.current.click()} /><input ref={library} type="file" accept="image/*" onChange={fromLibrary} style={{ display: 'none' }} aria-hidden="true" tabIndex={-1} /><input ref={nativeCam} type="file" accept="image/*" capture="environment" onChange={fromLibrary} style={{ display: 'none' }} aria-hidden="true" tabIndex={-1} /></span> : <span />}
@@ -368,8 +373,10 @@ export function Write() {
     current.current = null
     save()
   }
-  const undo = () => { strokes.current.pop(); save(); redraw() }
-  const clear = () => { strokes.current = []; save(); redraw() }
+  const pad = useRef(null)
+  const nudge = () => { if (pad.current && pad.current.animate && !matchMedia('(prefers-reduced-motion: reduce)').matches) pad.current.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(-2px)' }, { transform: 'translateX(2px)' }, { transform: 'translateX(0)' }], { duration: 220, easing: 'ease-in-out' }) }
+  const undo = () => { strokes.current.pop(); save(); redraw(); nudge() }
+  const clear = () => { strokes.current = []; save(); redraw(); nudge() }
 
   const dirty = Boolean((draft.text || '').trim()) || count > 0
   const { leave, sheet } = useDiscardGuard(dirty, { onDiscard: resetDraft })
@@ -383,13 +390,13 @@ export function Write() {
         <TopBar left={<IconButton icon="back" label="Back" onClick={() => leave(replyTo ? 'reply' : 'prompt')} />} center={<LetterTo />} />
         <Display small sub={p.category}>{p.title}</Display>
         <Segmented label="Write with" options={[{ value: 'type', label: 'Keyboard' }, { value: 'pen', label: 'Handwriting' }]} value={pen ? 'pen' : 'type'} onChange={(v) => setPen(v === 'pen')} />
-        <div style={{ flex: 1, position: 'relative', borderRadius: 26, background: 'var(--fill)', overflow: 'hidden' }}>
+        <div ref={pad} style={{ flex: 1, position: 'relative', borderRadius: 26, background: 'var(--fill)', overflow: 'hidden' }}>
           {pen ? (
             <>
               <canvas ref={canvas} aria-label="Handwriting area" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} style={{ width: '100%', height: '100%', touchAction: 'none', cursor: 'crosshair' }} />
               {!count && <span className="small" style={{ position: 'absolute', left: 18, bottom: 14, pointerEvents: 'none' }}>Write with your finger</span>}
               <div style={{ position: 'absolute', right: 10, top: 10, display: 'flex', gap: 2, background: '#fff', borderRadius: 20, padding: 2, boxShadow: '0 2px 10px rgba(29,29,34,.08)' }}>
-                <button aria-label="Eraser" aria-pressed={eraser} onClick={() => setEraser(!eraser)} style={tool(eraser)}><Icon name="eraser" size={18} /></button>
+                <button aria-label="Eraser" aria-pressed={eraser} onClick={() => setEraser(!eraser)} style={tool(eraser)}><span style={{ display: 'flex', transform: eraser ? 'rotate(-22deg) translateY(-1px)' : 'none', transition: 'transform .35s cubic-bezier(.3,1.6,.4,1)' }}><Icon name="eraser" size={18} /></span></button>
                 <button aria-label="Undo last stroke" disabled={!count} onClick={undo} style={{ ...tool(false), opacity: count ? 1 : 0.3 }}><Icon name="undo" size={18} /></button>
                 <button aria-label="Clear page" disabled={!count} onClick={clear} style={{ ...tool(false), opacity: count ? 1 : 0.3 }}><Icon name="trash" size={18} /></button>
               </div>
@@ -405,7 +412,7 @@ export function Write() {
                 const on = !eraser && ink.id === c.id
                 return (
                   <button key={c.id} role="radio" aria-checked={on} aria-label={c.label} onClick={() => { setInk(c); setEraser(false); setWheel(false) }}
-                    style={{ width: 30, height: 30, borderRadius: 15, border: 'none', padding: 0, background: '#fff', boxShadow: on ? `0 0 0 2px #fff, 0 0 0 4px ${c.color}` : 'inset 0 0 0 1.5px var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'box-shadow .15s' }}>
+                    style={{ width: 30, height: 30, borderRadius: 15, border: 'none', padding: 0, background: '#fff', boxShadow: on ? `0 0 0 2px #fff, 0 0 0 4px ${c.color}` : 'inset 0 0 0 1.5px var(--line)', animation: on ? 'selBounce .4s cubic-bezier(.3,.7,.3,1)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'box-shadow .15s' }}>
                     <span style={{ width: 20, height: 20, borderRadius: 10, background: c.color }} />
                   </button>
                 )
@@ -414,7 +421,7 @@ export function Write() {
                 const on = !eraser && ink.id === 'custom'
                 return (
                   <button role="radio" aria-checked={on} aria-label="Custom color" onClick={() => { setInk({ id: 'custom', label: 'Custom', color: custom }); setEraser(false); setWheel((w) => !w) }}
-                    style={{ width: 30, height: 30, borderRadius: 15, border: 'none', padding: 0, background: on ? '#fff' : RAINBOW, boxShadow: on ? `0 0 0 2px #fff, 0 0 0 4px ${custom}` : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'box-shadow .15s' }}>
+                    style={{ width: 30, height: 30, borderRadius: 15, border: 'none', padding: 0, background: on ? '#fff' : RAINBOW, boxShadow: on ? `0 0 0 2px #fff, 0 0 0 4px ${custom}` : 'none', animation: on ? 'selBounce .4s cubic-bezier(.3,.7,.3,1)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'box-shadow .15s' }}>
                     {on ? <span style={{ width: 24, height: 24, borderRadius: 12, background: RAINBOW, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ width: 16, height: 16, borderRadius: 8, background: custom }} /></span>
                       : <span style={{ width: 12, height: 12, borderRadius: 6, background: '#fff' }} />}
                   </button>
@@ -428,7 +435,7 @@ export function Write() {
                 return (
                   <button key={s.id} role="radio" aria-checked={on} aria-label={s.label} onClick={() => setSize(s)}
                     style={{ width: 32, height: 32, borderRadius: 16, border: 'none', background: on ? '#fff' : 'transparent', boxShadow: on ? '0 1px 3px rgba(29,29,34,.12)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <span style={{ width: s.width + 3, height: s.width + 3, borderRadius: '50%', background: eraser ? 'var(--ink-3)' : ink.color }} />
+                    <span style={{ animation: on ? 'selBounce .4s cubic-bezier(.3,.7,.3,1)' : 'none', width: s.width + 3, height: s.width + 3, borderRadius: '50%', background: eraser ? 'var(--ink-3)' : ink.color }} />
                   </button>
                 )
               })}
@@ -471,6 +478,7 @@ const stickerName = (st) => (st.name ? st.name : st.kind === 'bubble' ? `“${st
 export function Paper() {
   const { go, draft, setDraft } = useApp()
   const paper = draft.paper || 'postcard'
+  const [flips, setFlips] = useState(0)
   const area = useRef(null)
   const [items, setItems] = useState(() => (draft.stickers || []).map(toSticker))
   const [selected, setSelected] = useState(null)
@@ -600,9 +608,10 @@ export function Paper() {
       <div className="screen-body scroll" style={{ paddingBottom: 110 }}>
         <TopBar left={<IconButton icon="back" label="Back" onClick={() => go('write')} />} center={<LetterTo />} />
         <Display small>Pick your paper</Display>
-        <Segmented label="Paper" options={[{ value: 'postcard', label: 'Postcard' }, { value: 'letter', label: 'Letter' }]} value={paper} onChange={(v) => setDraft({ paper: v })} />
+        <Segmented label="Paper" options={[{ value: 'postcard', label: 'Postcard' }, { value: 'letter', label: 'Letter' }]} value={paper} onChange={(v) => { if (v !== paper) setFlips((n) => n + 1); setDraft({ paper: v }) }} />
 
         <div ref={area} onPointerDown={downArea} onPointerMove={move} onPointerUp={up} onPointerCancel={up} style={{ position: 'relative', height: 200, borderRadius: 24, background: 'var(--fill)', padding: 16, flexShrink: 0, touchAction: 'none' }}>
+          <div key={paper} style={{ height: '100%', transformOrigin: '50% 50%', animation: flips ? 'flipIn .5s cubic-bezier(.2,.8,.2,1) both' : 'none' }}>
           {paper === 'postcard' ? (
             <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', height: '100%', background: '#fff', borderRadius: 14 }}>
               <div style={{ padding: '14px 16px', fontFamily: 'var(--serif)', fontSize: 17, lineHeight: 1.35, borderRight: '1.5px solid var(--line)', overflow: 'hidden', minHeight: 0 }}><WrittenPage draft={draft} /></div>
@@ -615,6 +624,7 @@ export function Paper() {
           ) : (
             <div style={{ height: '100%', background: '#fff', borderRadius: 14, padding: '16px 18px', fontFamily: 'var(--serif)', fontSize: 17, lineHeight: 1.45, display: 'flex', flexDirection: 'column', gap: 4, overflow: 'hidden' }}><span>Dear Mẹ,</span><div style={{ flex: 1, minHeight: 0 }}><WrittenPage draft={draft} max={140} /></div></div>
           )}
+          </div>
           {items.map((st) => {
             const lifted = dragId === st.id
             const sel = selected === st.id
@@ -740,6 +750,18 @@ export function Caption() {
 
   const [sealing, setSealing] = useState(false)
   const stampLook = stamp.look ? LOOKS[stamp.look] : null
+  // Changing envelope color washes the new color in from the swatch's side, over the old envelope.
+  const [wash, setWash] = useState({ n: 0, from: null, x: '50%' })
+  useEffect(() => {
+    if (!wash.from) return
+    const t = setTimeout(() => setWash((w) => ({ ...w, from: null })), 600)
+    return () => clearTimeout(t)
+  }, [wash.n])
+  const pickEnvelope = (id, i) => {
+    if (id === draft.envelope) return
+    setWash((w) => ({ n: w.n + 1, from: draft.envelope, x: `${((i + 0.5) / ENVELOPES.length) * 100}%` }))
+    setDraft({ envelope: id })
+  }
 
   const send = () => {
     setLetters((ls) => [{ id: `me-${Date.now()}`, from: 'Me', mine: true, date: 'Today', kind, prompt: replyTo ? `Reply to “${replyTo.title}”` : p.title, title: draft.caption || (replyTo ? `Re: ${replyTo.title}` : p.title), body: draft.text || draft.caption || '', handwriting: kind === 'text' ? draft.handwriting : null, photo: kind === 'photo' ? draft.photo : undefined, caption: draft.caption || undefined, stamp: stamp.id, envelope: draft.envelope }, ...ls])
@@ -761,16 +783,21 @@ export function Caption() {
 
         <div style={{ position: 'relative', height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <div aria-hidden="true" style={{ position: 'absolute', inset: '-10px 10px', borderRadius: '50%', background: 'radial-gradient(closest-side, rgba(201,184,245,.25), rgba(255,255,255,0))' }} />
-          <Envelope key={sealing ? 'sealing' : 'open'} color={draft.envelope} stamp={stampLook} stampArt={stamp.art ? photoUrl(stamp.art) : null} sealing={sealing} width={262} style={{ transform: sealing ? 'scale(1.03)' : 'none', transition: 'transform .4s ease' }} />
+          <div style={{ position: 'relative' }}>
+            {wash.from && !sealing ? <div aria-hidden="true" style={{ position: 'absolute', inset: 0 }}><Envelope color={wash.from} stamp={stampLook} stampArt={stamp.art ? photoUrl(stamp.art) : null} width={262} /></div> : null}
+            <div key={wash.n} style={{ position: 'relative', '--wx': wash.x, animation: wash.n ? 'washIn .55s cubic-bezier(.4,0,.2,1) backwards' : 'none' }}>
+              <Envelope key={sealing ? 'sealing' : 'open'} color={draft.envelope} stamp={stampLook} stampArt={stamp.art ? photoUrl(stamp.art) : null} sealing={sealing} width={262} style={{ transform: sealing ? 'scale(1.03)' : 'none', transition: 'transform .4s ease' }} />
+            </div>
+          </div>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flexShrink: 0 }}>
           <span className="label">Envelope</span>
           <div role="radiogroup" aria-label="Envelope color" style={{ display: 'flex', justifyContent: 'space-between' }}>
-            {ENVELOPES.map((e) => {
+            {ENVELOPES.map((e, i) => {
               const on = draft.envelope === e.id
               return (
-                <button key={e.id} role="radio" aria-checked={on} aria-label={e.label} disabled={sealing} onClick={() => setDraft({ envelope: e.id })}
+                <button key={e.id} role="radio" aria-checked={on} aria-label={e.label} disabled={sealing} onClick={() => pickEnvelope(e.id, i)}
                   style={{ width: 44, height: 44, borderRadius: 22, border: 'none', padding: 0, background: '#fff', boxShadow: on ? `0 0 0 2px #fff, 0 0 0 4px var(--ink)` : 'inset 0 0 0 1.5px var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <span style={{ width: 32, height: 32, borderRadius: 16, background: `radial-gradient(circle at 30% 30%, ${e.c[0]}, ${e.c[1]} 60%, ${e.c[3]})` }} />
                 </button>
@@ -826,6 +853,13 @@ const SENT_DOTS = [
   [336, 254, '#e6e0fa', 0.5], [332, 258, '#fbd3e2', 0.1], [314, 324, '#c9b8f5', 0.7], [310, 328, '#e6e0fa', 1.3], [336, 398, '#c9b8f5', 0.35], [340, 394, '#fbd3e2', 0.95],
 ]
 
+// Sparkles left behind along the envelope's flight path: [x from center, y, color, delay].
+const SENT_PATH = 'M100 120 C 150 110, 190 40, 220 -40 S 270 -200, 290 -240'
+const SENT_SPARKS = [
+  [14, 112, '#f7b8d2', 1.0], [38, 100, '#c9b8f5', 1.08], [60, 82, '#fbd3e2', 1.16], [78, 58, '#e6e0fa', 1.24],
+  [94, 32, '#c9b8f5', 1.32], [108, 6, '#f7b8d2', 1.4], [122, -24, '#c9b8f5', 1.48], [138, -58, '#fbd3e2', 1.56],
+]
+
 export function Sent() {
   const { go, draft, resetDraft, sentKind } = useApp()
   const { to } = useReply()
@@ -839,12 +873,24 @@ export function Sent() {
         <span key={i} aria-hidden="true" style={{ position: 'absolute', left: x, top: y, width: 5, height: 5, borderRadius: 3, background: c, animation: `twinkle 1.8s ease-in-out ${d}s infinite` }} />
       ))}
       <div className="screen-body" style={{ alignItems: 'center', paddingTop: 104 }}>
-        <div style={{ position: 'relative', width: 340, height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ position: 'relative', width: 'min(340px, 100%)', height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div aria-hidden="true" style={{ position: 'absolute', inset: -40, borderRadius: '50%', background: 'radial-gradient(closest-side, rgba(201,184,245,.22), rgba(255,255,255,0))' }} />
-          <Envelope color={draft.envelope} stamp={stamp && stamp.look ? LOOKS[stamp.look] : null} width={202} style={{ animation: 'lift 1.4s cubic-bezier(.2,.8,.2,1) both' }} />
+          {/* The path it flew: a dotted line that draws itself behind the envelope and stays as a trace. */}
+          <svg aria-hidden="true" width="260" height="240" viewBox="0 0 260 240" style={{ position: 'absolute', left: '50%', top: 0, marginLeft: -100, overflow: 'visible', pointerEvents: 'none' }}>
+            <defs>
+              <mask id="sent-trail" maskUnits="userSpaceOnUse" x="-50" y="-300" width="420" height="500">
+                <path d={SENT_PATH} pathLength="1" fill="none" stroke="#fff" strokeWidth="8" strokeDasharray="1 1" style={{ strokeDashoffset: 0, animation: 'trailDraw 1s cubic-bezier(.5,0,.3,1) .95s backwards' }} />
+              </mask>
+            </defs>
+            <path d={SENT_PATH} mask="url(#sent-trail)" fill="none" stroke="#c9b8f5" strokeWidth="2.2" strokeLinecap="round" strokeDasharray="0.5 9" opacity=".85" />
+          </svg>
+          {SENT_SPARKS.map(([x, y, c, d], i) => (
+            <span key={i} aria-hidden="true" style={{ position: 'absolute', left: `calc(50% + ${x}px)`, top: y, width: 6, height: 6, borderRadius: 3, background: c, opacity: 0, animation: `sparkTrail .9s ease-out ${d}s both` }} />
+          ))}
+          <Envelope color={draft.envelope} stamp={stamp && stamp.look ? LOOKS[stamp.look] : null} width={202} style={{ animation: 'flyAway 2s cubic-bezier(.5,0,.3,1) both' }} />
         </div>
-        <h1 style={{ margin: '8px 0 0', fontSize: 48, fontWeight: 500, letterSpacing: '-0.03em', lineHeight: 1 }}>Sent!</h1>
-        <p className="body" style={{ textAlign: 'center', maxWidth: 260, marginTop: 6, fontSize: 16 }}>{line}</p>
+        <h1 style={{ margin: '8px 0 0', fontSize: 48, fontWeight: 500, letterSpacing: '-0.03em', lineHeight: 1, animation: 'settleIn .6s cubic-bezier(.2,.8,.2,1) 1.6s both' }}>Sent!</h1>
+        <p className="body" style={{ textAlign: 'center', maxWidth: 260, marginTop: 6, fontSize: 16, animation: 'settleIn .6s cubic-bezier(.2,.8,.2,1) 1.75s both' }}>{line}</p>
       </div>
       <Dock><button className="pill block" onClick={() => { resetDraft(); go('home') }}>Back home</button></Dock>
     </Screen>

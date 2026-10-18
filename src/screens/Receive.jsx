@@ -23,7 +23,7 @@ const EW = 300, EH = 202
 const MAIL_DOTS = [[30, 60, '#f7b8d2', 0], [52, 128, '#c9b8f5', 0.4], [24, 214, '#e6e0fa', 0.9], [60, 300, '#f7b8d2', 0.2],
   [334, 70, '#c9b8f5', 0.6], [310, 150, '#fbd3e2', 1.1], [340, 236, '#c9b8f5', 0.3], [316, 310, '#e6e0fa', 0.8]]
 
-function OpeningEnvelope({ color, stampLook, phase, from, centerDy = -150 }) {
+function OpeningEnvelope({ color, stampLook, phase, from, centerDy = -150, pull = 0, sealProps }) {
   const env = ENVELOPES.find((e) => e.id === color) || ENVELOPES[0]
   const bg = holo(env.c)
   const bgFront = holo([env.c[1], env.c[0], env.c[3], env.c[2], env.c[4]])
@@ -31,7 +31,7 @@ function OpeningEnvelope({ color, stampLook, phase, from, centerDy = -150 }) {
   const fade = { transition: 'opacity .45s ease, transform .5s cubic-bezier(.4,0,.2,1)', opacity: gone ? 0 : 1, transform: gone ? 'translateY(40px)' : 'none' }
 
   return (
-    <div style={{ position: 'relative', width: EW, height: EH, perspective: 900, animation: phase === 0 ? 'wiggle 2.6s ease-in-out infinite' : 'none' }}>
+    <div style={{ position: 'relative', width: EW, height: EH, perspective: 900, animation: phase === 0 && !pull ? 'wiggle 2.6s ease-in-out infinite' : 'none', transform: pull && !phase ? `rotateX(${pull * 8}deg) translateY(${pull * 4}px)` : 'none', transition: pull && !phase ? 'none' : 'transform .4s cubic-bezier(.3,1.5,.5,1)' }}>
       {/* back of the envelope */}
       <div className="holo still" style={{ '--holo': bg, position: 'absolute', inset: 0, borderRadius: 24, boxShadow: '0 24px 60px rgba(120,110,200,.22)', zIndex: 1, ...fade }}>
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,.28)' }} />
@@ -70,15 +70,26 @@ function OpeningEnvelope({ color, stampLook, phase, from, centerDy = -150 }) {
       </div>
 
       {/* wax seal, cracks in two */}
-      <div aria-hidden="true" style={{ position: 'absolute', left: EW / 2 - 24, top: EH * 0.66 - 24, width: 48, height: 48, zIndex: 5, opacity: gone ? 0 : 1 }}>
+      <div aria-hidden="true" {...sealProps} style={{ position: 'absolute', left: EW / 2 - 24, top: EH * 0.66 - 24, width: 48, height: 48, zIndex: 5, opacity: gone ? 0 : 1, touchAction: 'none', cursor: phase ? 'default' : 'grab',
+        transform: `translateY(${pull * 16}px)`, transition: pull ? 'none' : 'transform .45s cubic-bezier(.3,1.6,.5,1)', animation: phase === 0 && !pull ? 'sealBob 2.6s ease-in-out 1s infinite' : 'none' }}>
+        {/* bigger, invisible grab area for fingers */}
+        <span style={{ position: 'absolute', inset: -18, borderRadius: '50%' }} />
         {['left', 'right'].map((side) => (
-          <span key={side} style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: '#fff', boxShadow: 'inset 0 0 0 5px rgba(201,184,245,.35), 0 3px 10px rgba(29,29,34,.12)',
+          <span key={side} style={{ position: 'absolute', inset: 0, transform: pull && !phase ? `translateX(${(side === 'left' ? -1 : 1) * pull * 4}px) rotate(${(side === 'left' ? -1 : 1) * pull * 9}deg)` : 'none', transformOrigin: '50% 100%', transition: pull ? 'none' : 'transform .45s cubic-bezier(.3,1.6,.5,1)' }}>
+          <span style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: '#fff', boxShadow: 'inset 0 0 0 5px rgba(201,184,245,.35), 0 3px 10px rgba(29,29,34,.12)',
             clipPath: side === 'left' ? 'polygon(0 0, 52% 0, 44% 30%, 56% 55%, 46% 100%, 0 100%)' : 'polygon(52% 0, 100% 0, 100% 100%, 46% 100%, 56% 55%, 44% 30%)',
             animation: phase >= 1 ? `${side === 'left' ? 'sealLeft' : 'sealRight'} .6s .12s cubic-bezier(.4,0,.6,1) both` : 'none',
             display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#b9a6ee' }}>
             <Icon name="heart" size={18} stroke={2} />
           </span>
+          </span>
         ))}
+        {/* the crack opens up as the seal is pulled */}
+        {pull > 0 && !phase ? (
+          <svg width="48" height="48" viewBox="0 0 48 48" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+            <path d="M25 0 L21 14 L27 26 L22 48" pathLength="1" fill="none" stroke="#7d62e0" strokeWidth="1.6" strokeDasharray="1 1" style={{ strokeDashoffset: 1 - pull, opacity: 0.4 + pull * 0.6 }} />
+          </svg>
+        ) : null}
         {phase >= 1 && (
           <svg width="48" height="48" viewBox="0 0 48 48" style={{ position: 'absolute', inset: 0, animation: 'crackFlash .35s ease both' }}>
             <path d="M25 0 L21 14 L27 26 L22 48" fill="none" stroke="#7d62e0" strokeWidth="1.6" />
@@ -96,6 +107,21 @@ export function Mail() {
   const envRef = useRef(null)
   const stamp = STAMPS.find((s) => s.id === l.stamp)
   const stampLookV = stamp && stamp.look ? LOOKS[stamp.look] : null
+
+  // Pulling the seal down cracks it; far enough (or a quick flick) breaks it open.
+  const [pull, setPull] = useState(0)
+  const grab = useRef(null)
+  const sealProps = {
+    onPointerDown: (e) => { if (phase) return; grab.current = { y: e.clientY, t: e.timeStamp }; try { e.currentTarget.setPointerCapture(e.pointerId) } catch {} },
+    onPointerMove: (e) => { if (!grab.current) return; setPull(Math.max(0, Math.min(1, (e.clientY - grab.current.y) / 70))) },
+    onPointerUp: (e) => {
+      if (!grab.current) return
+      const dy = e.clientY - grab.current.y, v = dy / Math.max(1, e.timeStamp - grab.current.t)
+      grab.current = null
+      if (dy > 49 || (dy > 20 && v > 0.6)) { setPull(1); open() } else setPull(0)
+    },
+    onPointerCancel: () => { grab.current = null; setPull(0) },
+  }
 
   const open = () => {
     if (phase) return
@@ -132,11 +158,11 @@ export function Mail() {
           <div style={{ position: 'relative' }}>
             <div aria-hidden="true" style={{ position: 'absolute', left: '50%', top: '50%', width: 380, height: 300, margin: '-150px 0 0 -190px', borderRadius: '50%', background: 'radial-gradient(closest-side, rgba(201,184,245,.25), rgba(255,255,255,0))' }} />
             <div ref={envRef} role="img" aria-label={`A sealed ${l.envelope || 'lilac'} envelope from ${l.from}`} style={{ position: 'relative' }}>
-              <OpeningEnvelope color={l.envelope} stampLook={stampLookV} phase={phase} from={l.from} centerDy={centerDy} />
+              <OpeningEnvelope color={l.envelope} stampLook={stampLookV} phase={phase} from={l.from} centerDy={centerDy} pull={pull} sealProps={sealProps} />
             </div>
           </div>
           <p className="small" style={{ textAlign: 'center', opacity: phase ? 0 : 1, transition: 'opacity .3s' }}>
-            {stamp && stamp.id !== 'none' ? `Stamped “${stamp.label.toLowerCase()}” · ` : ''}sealed until you open it
+            {stamp && stamp.id !== 'none' ? `Stamped “${stamp.label.toLowerCase()}” · ` : ''}pull the seal down to open
           </p>
         </div>
       </div>

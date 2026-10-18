@@ -91,6 +91,13 @@ export default function Swipe() {
   const [ghosts, setGhosts] = useState([])
   const [hint, setHint] = useState(true)
   const [sheet, setSheet] = useState(false)
+  // Bumped to replay the refresh spin and deal cards back onto the deck (all: a fresh shuffle, else just the returned card).
+  const [deal, setDeal] = useState({ n: 0, all: false, on: false })
+  useEffect(() => {
+    if (!deal.on) return
+    const t = setTimeout(() => setDeal((d) => ({ ...d, on: false })), 800)
+    return () => clearTimeout(t)
+  }, [deal.n, deal.on])
   const start = useRef(null)
 
   const p = PROMPTS[index]
@@ -159,7 +166,9 @@ export default function Swipe() {
     if (!skipped.length || leaving) return
     setIndex(skipped[skipped.length - 1])
     setSkipped((s) => s.slice(0, -1))
+    setDeal((d) => ({ n: d.n + 1, all: false, on: true }))
   }
+  const shuffle = () => { setIndex(0); setSkipped([]); setDeal((d) => ({ n: d.n + 1, all: true, on: true })) }
   const cancelSheet = () => { setSheet(false); setLeaving(0) }
   const choose = (mode) => {
     setPromptIndex(index)
@@ -173,7 +182,7 @@ export default function Swipe() {
         <div style={{ display: 'grid', gridTemplateColumns: '44px 1fr 44px', alignItems: 'center', height: 44 }}>
           <span style={{ width: 44 }} aria-hidden="true" />
           <span style={{ textAlign: 'center', fontSize: 17, fontWeight: 500, color: '#3a3a40' }}>Pick your prompt</span>
-          <button className="icon-btn" aria-label="Undo last skip" onClick={undo} disabled={!skipped.length} style={{ background: 'transparent', opacity: skipped.length ? 1 : 0.25 }}><Icon name="refresh" size={20} /></button>
+          <button className="icon-btn" aria-label="Undo last skip" onClick={undo} disabled={!skipped.length} style={{ background: 'transparent', opacity: skipped.length ? 1 : 0.25 }}><span key={deal.n} style={{ display: 'flex', animation: deal.n ? 'spinBack .55s cubic-bezier(.3,.7,.2,1)' : 'none' }}><Icon name="refresh" size={20} /></span></button>
         </div>
         <div style={{ textAlign: 'center', fontSize: 12, color: '#9a9a9f', marginTop: 2 }}>
           {done ? 'All caught up' : `${index + 1} of ${PROMPTS.length}`}
@@ -185,14 +194,18 @@ export default function Swipe() {
               <h2 style={{ margin: 0, fontWeight: 500, fontSize: 28, letterSpacing: '-0.02em', color: '#1d1d22' }}>That’s all for<br /><span style={{ color: '#7d8ef0' }}>this week</span></h2>
               <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: '#8e919c', maxWidth: 260 }}>No prompt is required. Shuffle the deck again, or write whatever’s on your mind.</p>
               <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
-                <button className="pill small" onClick={() => { setIndex(0); setSkipped([]) }}>Shuffle again</button>
+                <button className="pill small" onClick={shuffle}>Shuffle again</button>
                 <button className="pill ghost small" onClick={() => { setDraft({ promptId: null, kind: 'text', replyTo: null }); go('write') }}>Write freely</button>
               </div>
             </div>
           ) : (
             [2, 1, 0].map((level) => {
               const q = PROMPTS[index + level]
-              return q ? <PromptCard key={q.id} p={q} level={level} drag={drag} leaving={level === 0 ? leaving : 0} hint={hint} onPointerDown={down} onPointerMove={move} onPointerUp={up} /> : null
+              if (!q) return null
+              const card = <PromptCard p={q} level={level} drag={drag} leaving={level === 0 ? leaving : 0} hint={hint} onPointerDown={down} onPointerMove={move} onPointerUp={up} />
+              // Dealt cards drop in from above, back of the deck first.
+              const dealt = deal.on && (deal.all || level === 0)
+              return <div key={q.id} style={{ position: 'absolute', inset: 0, '--deal-r': `${level % 2 ? 5 : -5}deg`, animation: dealt ? `dealIn .55s cubic-bezier(.2,.8,.2,1) ${deal.all ? (2 - level) * 90 : 0}ms both` : 'none' }}>{card}</div>
             })
           )}
           {ghosts.map((g) => <PromptCard key={g.key} p={g.p} level={0} drag={{ dx: 0, dy: 0, active: false }} ghost={g} />)}
