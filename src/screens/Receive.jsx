@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useApp } from '../store.jsx'
 import { LOOKS, RECAP_EARLIER, RECAP_MONTHS, STAMPS } from '../data.js'
 import { ENVELOPES, holo } from '../components/Envelope.jsx'
@@ -193,6 +193,53 @@ function PaperStamp({ look }) {
   )
 }
 
+const calm = () => typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+/** Full-screen photo: the picture grows out of its spot in the letter, and shrinks back into it on close. */
+function PhotoViewer({ src, alt, caption, from, onClose }) {
+  const box = useRef(null)
+  const shade = useRef(null)
+  const text = useRef(null)
+  const closing = useRef(false)
+  const { sw, sh, aspect } = from
+  const w = Math.min(sw - 32, (sh - 220) / aspect)
+  const h = w * aspect
+  const end = { left: (sw - w) / 2, top: (sh - h) / 2 - 24, width: w, height: h, borderRadius: 6 }
+  const start = { left: from.x, top: from.y, width: from.w, height: from.h, borderRadius: 2 }
+  const px = (r) => ({ left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px`, borderRadius: `${r.borderRadius}px` })
+  const ms = calm() ? 0 : 1
+  useLayoutEffect(() => {
+    box.current.animate([px(start), px(end)], { duration: 420 * ms, easing: 'cubic-bezier(.2,.8,.2,1)' })
+    shade.current.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300 * ms, easing: 'ease-out' })
+    text.current.animate([{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 300 * ms, delay: 220 * ms, fill: 'backwards', easing: 'ease-out' })
+  }, [])
+  const close = () => {
+    if (closing.current) return
+    closing.current = true
+    text.current.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 120 * ms, fill: 'forwards' })
+    shade.current.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 320 * ms, fill: 'forwards', easing: 'ease-in' })
+    box.current.animate([px(end), px(start)], { duration: 340 * ms, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' })
+    setTimeout(onClose, 340 * ms + 20)
+  }
+  useEffect(() => {
+    const k = (e) => { if (e.key === 'Escape') close() }
+    window.addEventListener('keydown', k)
+    return () => window.removeEventListener('keydown', k)
+  }, [])
+  return (
+    <div role="dialog" aria-modal="true" aria-label={alt} onClick={close} style={{ position: 'absolute', inset: 0, zIndex: 60, cursor: 'zoom-out' }}>
+      <div ref={shade} style={{ position: 'absolute', inset: 0, background: 'rgba(22,21,26,.96)' }} />
+      <div ref={box} style={{ position: 'absolute', ...px(end), overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,.35)' }}>
+        <img src={src} alt={alt} style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' }} />
+      </div>
+      <div ref={text} style={{ position: 'absolute', left: 24, right: 24, top: end.top + h + 18, textAlign: 'center', fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 18, lineHeight: 1.35, color: 'rgba(255,255,255,.88)' }}>{caption}</div>
+      <button aria-label="Close photo" onClick={(e) => { e.stopPropagation(); close() }} style={{ position: 'absolute', right: 16, top: 'max(16px, env(safe-area-inset-top))', width: 40, height: 40, borderRadius: 20, border: 'none', background: 'rgba(255,255,255,.14)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)' }}>
+        <Icon name="close" size={18} />
+      </button>
+    </div>
+  )
+}
+
 export function Read() {
   const { go, openLetter: l, setLetters } = useApp()
   const stamp = STAMPS.find((s) => s.id === l.stamp)
@@ -202,9 +249,17 @@ export function Read() {
   const signer = l.mine ? 'Linh' : l.from
   const caption = l.caption || l.title
   const serif = { fontFamily: 'var(--serif)', letterSpacing: '-0.01em' }
+  const [zoom, setZoom] = useState(null)
+  const zoomIn = (e) => {
+    const img = e.currentTarget, scr = img.closest('.screen')
+    if (!scr) return
+    const r = img.getBoundingClientRect(), sr = scr.getBoundingClientRect()
+    setZoom({ x: r.left - sr.left, y: r.top - sr.top, w: r.width, h: r.height, sw: sr.width, sh: sr.height, aspect: img.naturalWidth ? img.naturalHeight / img.naturalWidth : 0.75 })
+  }
 
   return (
     <Screen>
+      {zoom ? <PhotoViewer src={`${import.meta.env.BASE_URL}stamps/${l.photo}.jpg`} alt={`Photo from ${l.mine ? 'you' : l.from}`} caption={caption} from={zoom} onClose={() => setZoom(null)} /> : null}
       <div className="screen-body scroll" style={{ paddingBottom: 110, gap: 22 }}>
         <TopBar
           left={<IconButton icon="back" label="Back" onClick={() => go('home')} />}
@@ -227,7 +282,8 @@ export function Read() {
           {l.kind === 'photo' && (
             <figure style={{ margin: 0, background: '#fff', padding: '10px 10px 14px', borderRadius: 4, boxShadow: '0 2px 10px rgba(29,29,34,.08)', transform: 'rotate(-1.2deg)' }}>
               {l.photo
-                ? <img src={`${import.meta.env.BASE_URL}stamps/${l.photo}.jpg`} alt={`Photo from ${l.mine ? 'you' : l.from}`} style={{ display: 'block', width: '100%', height: 220, objectFit: 'cover', borderRadius: 2 }} />
+                ? <img src={`${import.meta.env.BASE_URL}stamps/${l.photo}.jpg`} alt={`Photo from ${l.mine ? 'you' : l.from}. Tap to view full screen`} role="button" tabIndex={0} onClick={zoomIn} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); zoomIn(e) } }}
+                    style={{ display: 'block', width: '100%', height: 220, objectFit: 'cover', borderRadius: 2, cursor: 'zoom-in', visibility: zoom ? 'hidden' : 'visible' }} />
                 : <Placeholder label={`Photo from ${l.mine ? 'you' : l.from}`} style={{ height: 200, borderRadius: 2 }} />}
               <figcaption style={{ ...serif, fontStyle: 'italic', fontSize: 17, lineHeight: 1.35, color: 'var(--ink-2)', marginTop: 10, textAlign: 'center' }}>{caption}</figcaption>
             </figure>
@@ -350,6 +406,32 @@ export function History() {
   const open = (l) => { setOpenId(l.id); go('read') }
   const cols = [shown.filter((_, i) => i % 2 === 0), shown.filter((_, i) => i % 2 === 1)]
 
+  // When the filter or search changes, cards glide from where they were to their new spot; new ones fade up.
+  const grid = useRef(null)
+  const spots = useRef(new Map())
+  const order = shown.map((l) => l.id).join('|')
+  useLayoutEffect(() => {
+    const g = grid.current
+    const next = new Map()
+    if (g) {
+      const gr = g.getBoundingClientRect()
+      g.querySelectorAll('[data-card]').forEach((el) => {
+        const r = el.getBoundingClientRect()
+        const at = { x: r.left - gr.left, y: r.top - gr.top }
+        next.set(el.dataset.card, at)
+        if (calm() || !spots.current.size) return
+        const was = spots.current.get(el.dataset.card)
+        if (was) {
+          const dx = was.x - at.x, dy = was.y - at.y
+          if (dx || dy) el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 480, easing: 'cubic-bezier(.2,.8,.2,1)' })
+        } else {
+          el.animate([{ opacity: 0, transform: 'translateY(14px) scale(.94)' }, { opacity: 1, transform: 'none' }], { duration: 380, delay: 120, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'backwards' })
+        }
+      })
+    }
+    spots.current = next
+  }, [order])
+
   return (
     <Screen bg={HAZE}>
       <div className="screen-body scroll" style={{ paddingBottom: 40 }}>
@@ -365,10 +447,10 @@ export function History() {
         <Segmented label="Show" options={['All', 'Sent', 'Received', 'Saved']} value={f} onChange={setF} />
 
         {shown.length ? (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start', paddingTop: 6 }}>
+          <div ref={grid} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start', paddingTop: 6 }}>
             {cols.map((col, c) => (
               <div key={c} style={{ display: 'flex', flexDirection: 'column', gap: 22, paddingTop: c ? 26 : 0 }}>
-                {col.map((l) => <GalleryItem key={l.id} l={l} i={letters.indexOf(l)} onOpen={() => open(l)} onSave={() => setLetters((ls) => ls.map((x) => (x.id === l.id ? { ...x, saved: !x.saved } : x)))} />)}
+                {col.map((l) => <div key={l.id} data-card={l.id}><GalleryItem l={l} i={letters.indexOf(l)} onOpen={() => open(l)} onSave={() => setLetters((ls) => ls.map((x) => (x.id === l.id ? { ...x, saved: !x.saved } : x)))} /></div>)}
               </div>
             ))}
           </div>

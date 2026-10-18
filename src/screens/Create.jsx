@@ -429,12 +429,14 @@ export function Write() {
               })()}
               {wheel ? <ColorWheel value={custom} onPick={(c) => { setCustom(c); setInk({ id: 'custom', label: 'Custom', color: c }) }} onClose={() => setWheel(false)} /> : null}
             </div>
-            <div role="radiogroup" aria-label="Pen size" style={{ display: 'flex', gap: 2, background: 'var(--fill)', borderRadius: 18, padding: 2 }}>
+            <div role="radiogroup" aria-label="Pen size" style={{ position: 'relative', display: 'flex', gap: 2, background: 'var(--fill)', borderRadius: 18, padding: 2 }}>
+              {/* white pill that slides to the chosen size */}
+              <span aria-hidden="true" style={{ position: 'absolute', left: 2, top: 2, width: 32, height: 32, borderRadius: 16, background: '#fff', boxShadow: '0 1px 3px rgba(29,29,34,.12)', transform: `translateX(${Math.max(0, SIZES.findIndex((x) => x.id === size.id)) * 34}px)`, transition: 'transform .35s cubic-bezier(.3,1.3,.5,1)' }} />
               {SIZES.map((s) => {
                 const on = size.id === s.id
                 return (
                   <button key={s.id} role="radio" aria-checked={on} aria-label={s.label} onClick={() => setSize(s)}
-                    style={{ width: 32, height: 32, borderRadius: 16, border: 'none', background: on ? '#fff' : 'transparent', boxShadow: on ? '0 1px 3px rgba(29,29,34,.12)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    style={{ position: 'relative', width: 32, height: 32, borderRadius: 16, border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <span style={{ animation: on ? 'selBounce .4s cubic-bezier(.3,.7,.3,1)' : 'none', width: s.width + 3, height: s.width + 3, borderRadius: '50%', background: eraser ? 'var(--ink-3)' : ink.color }} />
                   </button>
                 )
