@@ -7,6 +7,7 @@ import Shape from '../components/Shape.jsx'
 import Icon from '../components/Icon.jsx'
 import { useDiscardGuard } from '../components/Discard.jsx'
 import { VoiceOrb } from './Create.jsx'
+import { VoicePlayer } from '../components/Voice.jsx'
 
 function Wave({ n = 30, w = 150 }) {
   return (
@@ -290,8 +291,8 @@ export function Read() {
           )}
           {l.kind === 'voice' && (
             <div style={{ background: '#fff', borderRadius: 10, boxShadow: '0 2px 10px rgba(29,29,34,.06)', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span className="icon-btn" style={{ background: 'var(--ink)', color: '#fff' }}><Icon name="play" /></span><Wave /><span className="small">1:12</span>
+              <div>
+                <VoicePlayer src={l.audio} seconds={l.seconds || 72} />
               </div>
               <span style={{ ...serif, fontStyle: 'italic', fontSize: 16, color: 'var(--ink-2)' }}>{caption}</span>
             </div>
@@ -530,6 +531,18 @@ function LetterSlide({ l, active, saved, onSave, onReply, h = 764 }) {
   const [paused, setPaused] = useState(false)
   useEffect(() => { if (!active) setPaused(false) }, [active])
   const playing = l.kind === 'voice' && active && !paused
+  // A recorded clip really plays. Phones may block sound that starts on its own; then it waits paused for a tap.
+  const sound = useRef(null)
+  useEffect(() => {
+    const a = sound.current
+    if (!a) return
+    if (playing) a.play().catch(() => setPaused(true))
+    else { a.pause(); if (!active) a.currentTime = 0 }
+  }, [playing, active])
+  const tapVoice = () => {
+    if (paused && sound.current) sound.current.play().catch(() => {}) // start inside the tap for iOS
+    setPaused((v) => !v)
+  }
   const fg = dark ? '#fff' : 'var(--ink)'
   const who = l.mine ? 'You' : l.from
   const to = l.mine ? (l.to || 'Mẹ') : 'you'
@@ -556,7 +569,8 @@ function LetterSlide({ l, active, saved, onSave, onReply, h = 764 }) {
       <div style={{ position: 'absolute', inset: 0, background: soft(look, true), ...DRIFT, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 'min(26px, 3cqh)', padding: '90px clamp(0px, calc(560px - 70cqh), 76px) 160px 0' }}><Glow a={look.c[0]} b={look.c[1]} faint />
         <div style={{ animation: B(active, 'popIn', 0, 0.9), margin: '-20px 0 -24px' }}>
           <div style={{ position: 'relative' }}>
-            <VoiceOrb rec={playing} mic={false} size={Math.round(Math.max(150, Math.min(260, h - 340)))} colors={[look.c[0], '#ffd3e2', look.c[1], '#d9ccfa', '#f6f2ff']} />
+            {l.audio ? <audio ref={sound} src={l.audio} preload="auto" playsInline onEnded={() => { setPaused(true); if (sound.current) sound.current.currentTime = 0 }} /> : null}
+            <VoiceOrb rec={playing} size={Math.round(Math.max(150, Math.min(260, h - 340)))} colors={[look.c[0], '#ffd3e2', look.c[1], '#d9ccfa', '#f6f2ff']} />
             {paused ? (
               <span aria-hidden="true" className="rise" style={{ position: 'absolute', left: '50%', top: '50%', width: 64, height: 64, margin: '-32px 0 0 -32px', borderRadius: 32, background: 'rgba(255,255,255,.7)', backdropFilter: 'blur(8px)', color: 'var(--ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', animationDuration: '.25s' }}><Icon name="play" size={24} /></span>
             ) : null}
@@ -586,7 +600,7 @@ function LetterSlide({ l, active, saved, onSave, onReply, h = 764 }) {
 
   return (
     <div style={{ position: 'absolute', inset: 0, cursor: l.kind === 'voice' ? 'pointer' : 'auto' }}
-      onClick={l.kind === 'voice' ? () => setPaused((v) => !v) : undefined}
+      onClick={l.kind === 'voice' ? tapVoice : undefined}
       role={l.kind === 'voice' ? 'button' : undefined} aria-label={l.kind === 'voice' ? (paused ? 'Play voice note' : 'Pause voice note') : undefined}>
       {stage}
 

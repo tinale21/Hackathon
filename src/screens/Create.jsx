@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useApp } from '../store.jsx'
 import { LOOKS, PROMPTS, STAMPS } from '../data.js'
 import { Display, Dock, IconButton, Placeholder, Screen, Segmented, Tile, TopBar } from '../components/ui.jsx'
@@ -7,6 +7,7 @@ import Icon from '../components/Icon.jsx'
 import { useDiscardGuard } from '../components/Discard.jsx'
 import Envelope, { ENVELOPES, holo } from '../components/Envelope.jsx'
 import { STICKER_CATS, StickerArt, petSticker } from '../components/Stickers.jsx'
+import { VoicePlayer, clock, startVoice } from '../components/Voice.jsx'
 
 const MODE_LABEL = { photo: 'Photo', voice: 'Voice memo', text: 'Words' }
 // Prototype stand-in for the camera: each prompt "sees" a fitting sample photo.
@@ -30,18 +31,22 @@ function LetterTo() {
 
 /* ---------- Capture ---------- */
 // Voice memo orb: the faded pastel circle used across the app. It breathes while idle and swells with your voice while recording.
-// Uses the microphone level when the browser allows it; otherwise it falls back to a speech-like rhythm.
-export function VoiceOrb({ rec, colors, mic = true, size = 280 }) {
+// It follows the recorder's microphone level (analyser) when there is one; otherwise it falls back to a speech-like rhythm.
+export function VoiceOrb({ rec, colors, analyser = null, size = 280 }) {
   const orb = useRef(null)
   const halo = useRef(null)
   const halo2 = useRef(null)
+  const source = useRef(analyser)
+  source.current = analyser
   useEffect(() => {
     if (!rec) return
-    let raf = 0, stream = null, ctx = null, analyser = null, data = null, stopped = false, level = 0
+    let raf = 0, data = null, level = 0
     const t0 = performance.now()
     const tick = () => {
       let target
+      const analyser = source.current
       if (analyser) {
+        if (!data || data.length !== analyser.fftSize) data = new Uint8Array(analyser.fftSize)
         analyser.getByteTimeDomainData(data)
         let sum = 0
         for (let i = 0; i < data.length; i++) { const v = (data[i] - 128) / 128; sum += v * v }
@@ -58,25 +63,11 @@ export function VoiceOrb({ rec, colors, mic = true, size = 280 }) {
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
-    if (mic && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      navigator.mediaDevices.getUserMedia({ audio: true }).then((s) => {
-        if (stopped) { s.getTracks().forEach((t) => t.stop()); return }
-        stream = s
-        ctx = new (window.AudioContext || window.webkitAudioContext)()
-        analyser = ctx.createAnalyser()
-        analyser.fftSize = 512
-        data = new Uint8Array(analyser.fftSize)
-        ctx.createMediaStreamSource(s).connect(analyser)
-      }).catch(() => {})
-    }
     return () => {
-      stopped = true
       cancelAnimationFrame(raf)
-      if (stream) stream.getTracks().forEach((t) => t.stop())
-      if (ctx) ctx.close().catch(() => {})
       ;[orb, halo, halo2].forEach((r) => { if (r.current) { r.current.style.transform = ''; r.current.style.opacity = '' } })
     }
-  }, [rec, mic])
+  }, [rec])
 
   // Soft edges everywhere: each layer fades out instead of ending in a hard circle.
   const fade = (stop) => ({ WebkitMaskImage: `radial-gradient(circle, #000 ${stop}%, transparent 71%)`, maskImage: `radial-gradient(circle, #000 ${stop}%, transparent 71%)` })
@@ -99,11 +90,48 @@ export function Capture() {
   const [mode, setMode] = useState(draft.kind === 'voice' ? 'voice' : 'photo')
   const [rec, setRec] = useState(false)
   const [secs, setSecs] = useState(0)
+  // Real recording: the mic starts on the tap, the clip goes into the letter.
+  // If the mic isn't available or allowed, it carries on as a pretend recording and says so.
+  const voice = useRef(null) // the pending startVoice() promise
+  const began = useRef(0)
+  const [micLive, setMicLive] = useState(false)
+  const [analyser, setAnalyser] = useState(null)
+  const [micOff, setMicOff] = useState(false)
+  useEffect(() => {
+    if (!rec || !micLive) return
+    const t = setInterval(() => setSecs(Math.floor((Date.now() - began.current) / 1000)), 250)
+    return () => clearInterval(t)
+  }, [rec, micLive])
+  const startRec = () => {
+    setSecs(0); setRec(true); setMicLive(false)
+    const pending = startVoice()
+    voice.current = pending
+    pending.then((h) => {
+      if (voice.current !== pending) { h.cancel(); return }
+      setAnalyser(h.analyser); setMicOff(false)
+    }, () => { if (voice.current === pending) setMicOff(true) })
+      .finally(() => { if (voice.current === pending) { began.current = Date.now(); setMicLive(true) } })
+  }
+  const stopRec = async () => {
+    const pending = voice.current
+    const seconds = Math.max(1, Math.round((Date.now() - (began.current || Date.now())) / 1000))
+    voice.current = null
+    setRec(false); setAnalyser(null)
+    const h = pending ? await pending.catch(() => null) : null
+    const clip = h ? await h.stop() : null
+    setDraft({ kind: 'voice', seconds, audio: clip ? clip.url : null })
+    go('caption')
+  }
+  // Leaving the screen throws the recording away and frees the mic.
+  useEffect(() => () => { const p = voice.current; voice.current = null; if (p) p.then((h) => h.cancel(), () => {}) }, [])
+  // Three minutes is the cap; locking the phone also ends it, since the mic stops anyway.
+  useEffect(() => { if (rec && secs >= 180) stopRec() }, [rec, secs]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!rec) return
-    const t = setInterval(() => setSecs((s) => s + 1), 1000)
-    return () => clearInterval(t)
-  }, [rec])
+    const hide = () => { if (document.hidden) stopRec() }
+    document.addEventListener('visibilitychange', hide)
+    return () => document.removeEventListener('visibilitychange', hide)
+  }, [rec]) // eslint-disable-line react-hooks/exhaustive-deps
   const pickMode = (m) => (m === 'text' ? (setDraft({ kind: 'text' }), go('write')) : setMode(m))
   // The camera view stays empty until the shutter (or library) is used; then the photo is shown to keep or retake.
   const [picked, setPicked] = useState(null)
@@ -173,10 +201,10 @@ export function Capture() {
       snap(true)
     }
   }
-  const done = () => { setDraft(mode === 'photo' ? { kind: 'photo', photo: shot } : { kind: mode, seconds: secs || 42 }); go('caption') }
+  const done = () => { setDraft({ kind: 'photo', photo: shot }); go('caption') }
   const { replyPrompt } = useReply()
   const p = replyPrompt || PROMPTS.find((x) => x.id === draft.promptId) || prompt
-  const { leave, sheet } = useDiscardGuard(rec || secs > 0 || taken, { onDiscard: () => setRec(false), body: 'If you leave now, your recording won’t be saved.', keep: 'Keep recording' })
+  const { leave, sheet } = useDiscardGuard(rec || secs > 0 || taken, { onDiscard: () => { const p = voice.current; voice.current = null; if (p) p.then((h) => h.cancel(), () => {}); setRec(false) }, body: 'If you leave now, your recording won’t be saved.', keep: 'Keep recording' })
 
   return (
     <Screen>
@@ -199,14 +227,14 @@ export function Capture() {
           </div>
         ) : (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, background: 'var(--fill)', borderRadius: 28, overflow: 'hidden' }}>
-            <VoiceOrb rec={rec} colors={p.card ? [p.card[0], '#ffd3e2', p.card[1], '#d9ccfa', '#f6f2ff'] : ENVELOPES[0].c} />
+            <VoiceOrb rec={rec} analyser={analyser} colors={p.card ? [p.card[0], '#ffd3e2', p.card[1], '#d9ccfa', '#f6f2ff'] : ENVELOPES[0].c} />
             <span style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 30, fontVariantNumeric: 'tabular-nums', fontWeight: 300, color: rec ? '#e5484d' : 'var(--ink)', transition: 'color .3s ease' }}>
               <span aria-hidden="true" style={{ width: rec ? 10 : 0, height: 10, borderRadius: 5, background: '#e5484d', marginLeft: rec ? 0 : -10, transition: 'width .25s ease, margin .25s ease', animation: rec ? 'recDot 1.2s ease-in-out infinite' : 'none' }} />
-              0:{String(secs).padStart(2, '0')}
+              {clock(secs)}
             </span>
           </div>
         )}
-        <p className="small" style={{ textAlign: 'center' }}>{mode === 'photo' ? 'Mess is welcome. This isn’t proof, just a peek.' : 'Talk like you would on the phone. A minute is plenty.'}</p>
+        <p className="small" style={{ textAlign: 'center' }}>{mode === 'photo' ? 'Mess is welcome. This isn’t proof, just a peek.' : micOff ? 'The microphone is off, so this is a pretend recording. Allow the microphone for this site to record your voice.' : rec && !micLive ? 'Starting the microphone…' : 'Talk like you would on the phone. A minute is plenty.'}</p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center' }}>
           {mode === 'photo' && taken ? null : <span />}
           {mode === 'photo' && taken ? (
@@ -219,7 +247,7 @@ export function Capture() {
               <span style={{ display: 'block', width: '100%', height: '100%', borderRadius: '50%', background: 'var(--ink)' }} />
             </button>
           ) : (
-            <button aria-label={rec ? 'Stop and review' : 'Start recording'} onClick={() => (rec ? (setRec(false), done()) : setRec(true))} style={{ position: 'relative', width: 74, height: 74, borderRadius: 37, border: 'none', background: 'var(--ink)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: rec ? 'recRing 1.4s ease-out infinite' : 'none' }}>
+            <button aria-label={rec ? 'Stop and review' : 'Start recording'} onClick={() => (rec ? stopRec() : startRec())} style={{ position: 'relative', width: 74, height: 74, borderRadius: 37, border: 'none', background: 'var(--ink)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: rec ? 'recRing 1.4s ease-out infinite' : 'none' }}>
               {/* The mic shrinks away and a rounded stop square grows in its place while recording. */}
               <span style={{ display: 'flex', transform: rec ? 'scale(.3)' : 'scale(1)', opacity: rec ? 0 : 1, transition: 'transform .3s cubic-bezier(.2,.8,.2,1), opacity .2s ease' }}><Icon name="voice" size={26} /></span>
               <span aria-hidden="true" style={{ position: 'absolute', left: '50%', top: '50%', width: rec ? 24 : 10, height: rec ? 24 : 10, borderRadius: rec ? 7 : 5, background: '#ff6b6b', transform: 'translate(-50%, -50%)', opacity: rec ? 1 : 0, transition: 'width .35s cubic-bezier(.3,1.4,.4,1), height .35s cubic-bezier(.3,1.4,.4,1), border-radius .35s ease, opacity .2s ease' }} />
@@ -493,6 +521,7 @@ export function Paper() {
   latest.current = items
   const commit = (next) => { setItems(next); setDraft({ stickers: next }) }
   const bounds = () => { const r = area.current.getBoundingClientRect(); return { w: r.width, h: r.height, left: r.left, top: r.top } }
+  const fresh = useRef(new Set()) // stickers added this visit get the drop-in; ones from a saved draft just sit there
   const add = (art) => {
     if (items.length >= MAX_STICKERS) return
     const { w, h } = bounds()
@@ -504,6 +533,7 @@ export function Paper() {
       if (!best || gap > best.gap) best = { ...c, gap }
     }
     const st = { id: `s${Date.now()}`, ...art, x: best.x, y: best.y, r: Math.round(Math.random() * 24 - 12), s: 1 }
+    fresh.current.add(st.id)
     commit([...items, st])
     setSelected(st.id); setMenu(null)
   }
@@ -635,7 +665,8 @@ export function Paper() {
               <div key={st.id} role="button" tabIndex={0} aria-label={`${stickerName(st)} sticker. Drag to move, tap for options.`}
                 onPointerDown={(e) => down(e, st)} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
                 style={{ position: 'absolute', left: st.x - BASE / 2, top: st.y - BASE / 2, width: BASE, height: BASE, zIndex: lifted ? 6 : sel ? 5 : 2, cursor: lifted ? 'grabbing' : 'grab', touchAction: 'none', transform: `rotate(${st.r}deg) scale(${sc * (lifted && grab.current && grab.current.mode === 'move' ? 1.08 : 1)})`, transition: lifted ? 'none' : 'transform .18s ease' }}>
-                <StickerArt st={st} size={BASE} />
+                {/* Lands like a sticker being pressed on: drops in, squashes, settles. */}
+                <span style={{ display: 'block', animation: fresh.current.has(st.id) ? 'stickDrop .55s cubic-bezier(.3,.7,.3,1) both' : 'none' }}><StickerArt st={st} size={BASE} /></span>
                 {/* Kept mounted while turning so the browser keeps tracking the drag on the handle. */}
                 {sel ? (
                   <>
@@ -724,10 +755,8 @@ function InsidePreview({ draft, kind, to }) {
     return (
       <div style={{ ...card, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
         <span style={{ ...serif, fontSize: 16 }}>Dear {to},</span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--fill)', borderRadius: 18, height: 40, padding: '0 12px' }}>
-          <Icon name="play" size={14} />
-          <svg width="150" height="26" viewBox="0 0 150 26" aria-hidden="true">{Array.from({ length: 30 }, (_, i) => { const h = 4 + ((i * 7) % 9); return <rect key={i} x={i * 5} y={13 - h} width="2.6" height={h * 2} rx="1.3" fill="rgba(29,29,34,.5)" /> })}</svg>
-          <span className="small" style={{ marginLeft: 'auto', fontVariantNumeric: 'tabular-nums' }}>0:{String(secs).padStart(2, '0')}</span>
+        <span style={{ display: 'block', background: 'var(--fill)', borderRadius: 26, padding: '4px 14px 4px 4px' }}>
+          <VoicePlayer src={draft.audio} seconds={secs} />
         </span>
         {draft.caption ? <span style={{ ...serif, fontStyle: 'italic', fontSize: 14, color: 'var(--ink-2)' }}>{draft.caption}</span> : null}
       </div>
@@ -742,6 +771,8 @@ function InsidePreview({ draft, kind, to }) {
   )
 }
 
+const calmMotion = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+
 export function Caption() {
   const { go, draft, setDraft, resetDraft, prompt, setLetters, setSentKind } = useApp()
   const { leave, sheet } = useDiscardGuard(true, { onDiscard: resetDraft })
@@ -751,7 +782,40 @@ export function Caption() {
   const stamp = STAMPS.find((s) => s.id === draft.stamp) || STAMPS[0]
 
   const [sealing, setSealing] = useState(false)
-  const stampLook = stamp.look ? LOOKS[stamp.look] : null
+  // The envelope shows the stamp only once the picked one has flown over and landed.
+  const [landedId, setLandedId] = useState(stamp.id)
+  const landed = STAMPS.find((x) => x.id === landedId) || stamp
+  const stampLook = landed.look ? LOOKS[landed.look] : null
+  const envBox = useRef(null)
+  const [flight, setFlight] = useState(null)
+  const flyer = useRef(null)
+  const pickStamp = (s, e) => {
+    if (s.id === stamp.id) return
+    setDraft({ stamp: s.id })
+    const tile = e.currentTarget.querySelector('.postage'), env = envBox.current, scr = env && env.closest('.screen')
+    if (!s.look || !tile || !env || !scr || calmMotion()) { setLandedId(s.id); return }
+    const sr = scr.getBoundingClientRect(), tr = tile.getBoundingClientRect(), er = env.getBoundingClientRect()
+    const k = er.width / 202
+    setFlight({ n: Date.now(), s, from: { x: tr.left - sr.left, y: tr.top - sr.top, w: tr.width, h: tr.height }, to: { x: er.right - sr.left - 12 * k - 32 * k, y: er.top - sr.top + 12 * k, w: 32 * k, h: 38 * k } })
+  }
+  useLayoutEffect(() => {
+    if (!flight || !flyer.current) return
+    const { from: a, to: b } = flight
+    const mid = { x: (a.x + b.x) / 2 + 20, y: Math.min(a.y, b.y) - 60 }
+    const box = (r, extra) => ({ left: `${r.x}px`, top: `${r.y}px`, width: `${r.w}px`, height: `${r.h}px`, ...extra })
+    flyer.current.animate([
+      box(a, { transform: 'rotate(-4deg) scale(1)', filter: 'drop-shadow(0 2px 4px rgba(29,29,34,.15))', offset: 0 }),
+      box({ x: mid.x, y: mid.y, w: (a.w + b.w) / 2, h: (a.h + b.h) / 2 }, { transform: 'rotate(-12deg) scale(1.25)', filter: 'drop-shadow(0 14px 18px rgba(29,29,34,.22))', offset: 0.5 }),
+      box(b, { transform: 'rotate(3deg) scale(1.18)', filter: 'drop-shadow(0 6px 10px rgba(29,29,34,.2))', offset: 0.8 }),
+      box(b, { transform: 'rotate(0deg) scale(.94)', filter: 'drop-shadow(0 1px 2px rgba(29,29,34,.15))', offset: 0.9 }),
+      box(b, { transform: 'rotate(0deg) scale(1)', filter: 'drop-shadow(0 1px 2px rgba(29,29,34,.15))', offset: 1 }),
+    ], { duration: 640, easing: 'cubic-bezier(.4,0,.3,1)', fill: 'forwards' })
+    // the thud: the envelope gives a little under the stamp
+    const t1 = setTimeout(() => envBox.current && envBox.current.animate([{ transform: 'scale(1)' }, { transform: 'scale(.975) translateY(2px)' }, { transform: 'scale(1.008)' }, { transform: 'scale(1)' }], { duration: 300, easing: 'ease-out' }), 520)
+    const t2 = setTimeout(() => setLandedId(flight.s.id), 600)
+    const t3 = setTimeout(() => setFlight((f) => (f && f.n === flight.n ? null : f)), 660)
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
+  }, [flight])
   // Changing envelope color washes the new color in from the swatch's side, over the old envelope.
   const [wash, setWash] = useState({ n: 0, from: null, x: '50%' })
   useEffect(() => {
@@ -766,7 +830,7 @@ export function Caption() {
   }
 
   const send = () => {
-    setLetters((ls) => [{ id: `me-${Date.now()}`, from: 'Me', mine: true, date: 'Today', kind, prompt: replyTo ? `Reply to “${replyTo.title}”` : p.title, title: draft.caption || (replyTo ? `Re: ${replyTo.title}` : p.title), body: draft.text || draft.caption || '', handwriting: kind === 'text' ? draft.handwriting : null, photo: kind === 'photo' ? draft.photo : undefined, caption: draft.caption || undefined, stamp: stamp.id, envelope: draft.envelope }, ...ls])
+    setLetters((ls) => [{ id: `me-${Date.now()}`, from: 'Me', mine: true, date: 'Today', kind, prompt: replyTo ? `Reply to “${replyTo.title}”` : p.title, title: draft.caption || (replyTo ? `Re: ${replyTo.title}` : p.title), body: draft.text || draft.caption || '', handwriting: kind === 'text' ? draft.handwriting : null, photo: kind === 'photo' ? draft.photo : undefined, audio: kind === 'voice' ? draft.audio || null : undefined, seconds: kind === 'voice' ? draft.seconds : undefined, caption: draft.caption || undefined, stamp: stamp.id, envelope: draft.envelope }, ...ls])
     setSentKind(replyTo ? 'reply' : 'letter')
     go('sent')
   }
@@ -782,13 +846,19 @@ export function Caption() {
       <div className="screen-body scroll" style={{ paddingBottom: 110 }}>
         <TopBar left={<IconButton icon="back" label="Back" onClick={() => go(kind === 'text' ? 'paper' : 'capture')} />} right={<button className="pill outline small" onClick={() => go(kind === 'text' ? 'paper' : 'capture')}>{kind === 'text' ? 'Edit' : 'Retake'}</button>} />
         <Display small sub="Pick an envelope and a stamp.">Seal it with a stamp</Display>
+        {flight ? (
+          <span ref={flyer} key={flight.n} aria-hidden="true" className="postage" style={{ position: 'absolute', zIndex: 40, pointerEvents: 'none', left: flight.from.x, top: flight.from.y, width: flight.from.w, height: flight.from.h, padding: 3, boxSizing: 'border-box', '--r': '2px' }}>
+            {flight.s.art ? <img src={photoUrl(flight.s.art)} alt="" style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' }} />
+              : <span style={{ display: 'block', width: '100%', height: '100%', overflow: 'hidden' }}><Shape look={LOOKS[flight.s.look]} /></span>}
+          </span>
+        ) : null}
 
         <div style={{ position: 'relative', height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <div aria-hidden="true" style={{ position: 'absolute', inset: '-10px 10px', borderRadius: '50%', background: 'radial-gradient(closest-side, rgba(201,184,245,.25), rgba(255,255,255,0))' }} />
           <div style={{ position: 'relative' }}>
-            {wash.from && !sealing ? <div aria-hidden="true" style={{ position: 'absolute', inset: 0 }}><Envelope color={wash.from} stamp={stampLook} stampArt={stamp.art ? photoUrl(stamp.art) : null} width={262} /></div> : null}
-            <div key={wash.n} style={{ position: 'relative', '--wx': wash.x, animation: wash.n ? 'washIn .55s cubic-bezier(.4,0,.2,1) backwards' : 'none' }}>
-              <Envelope key={sealing ? 'sealing' : 'open'} color={draft.envelope} stamp={stampLook} stampArt={stamp.art ? photoUrl(stamp.art) : null} sealing={sealing} width={262} style={{ transform: sealing ? 'scale(1.03)' : 'none', transition: 'transform .4s ease' }} />
+            {wash.from && !sealing ? <div aria-hidden="true" style={{ position: 'absolute', inset: 0 }}><Envelope color={wash.from} stamp={stampLook} stampArt={landed.art ? photoUrl(landed.art) : null} width={262} /></div> : null}
+            <div key={wash.n} ref={envBox} style={{ position: 'relative', '--wx': wash.x, animation: wash.n ? 'washIn .55s cubic-bezier(.4,0,.2,1) backwards' : 'none' }}>
+              <Envelope key={sealing ? 'sealing' : 'open'} color={draft.envelope} stamp={stampLook} stampArt={landed.art ? photoUrl(landed.art) : null} sealing={sealing} width={262} style={{ transform: sealing ? 'scale(1.03)' : 'none', transition: 'transform .4s ease' }} />
             </div>
           </div>
         </div>
@@ -814,7 +884,7 @@ export function Caption() {
             {STAMPS.map((s) => {
               const on = s.id === stamp.id
               return (
-                <button key={s.id} role="radio" aria-checked={on} disabled={sealing} onClick={() => setDraft({ stamp: s.id })}
+                <button key={s.id} role="radio" aria-checked={on} disabled={sealing} onClick={(e) => pickStamp(s, e)}
                   style={{ border: 'none', background: 'var(--fill)', borderRadius: 16, padding: '8px 6px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, boxShadow: on ? 'inset 0 0 0 2px var(--ink)' : 'none', color: 'var(--ink-2)' }}>
                   {s.look ? (
                     <span className="postage-wrap" style={{ display: 'block', transform: on ? 'rotate(-4deg)' : 'none', transition: 'transform .2s ease', filter: 'drop-shadow(0 2px 4px rgba(29,29,34,.12))' }}>

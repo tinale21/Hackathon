@@ -32,6 +32,7 @@ const P = {
   eraser: <><path d="M8 20h12" /><path d="M5.5 15.5l9-9a2 2 0 0 1 2.8 0l1.7 1.7a2 2 0 0 1 0 2.8L11 19H8.5z" /><path d="M10 11l4.5 4.5" /></>,
   trash: <><path d="M4 7h16M9 7V4h6v3" /><path d="M6 7l1 13h10l1-13" /></>,
   play: <path d="M7 4l13 8-13 8z" fill="currentColor" stroke="none" />,
+  pause: <><rect x="6.5" y="5" width="4" height="14" rx="1.5" fill="currentColor" stroke="none" /><rect x="13.5" y="5" width="4" height="14" rx="1.5" fill="currentColor" stroke="none" /></>,
   stop: <rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" stroke="none" />,
 }
 

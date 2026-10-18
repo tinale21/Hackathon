@@ -69,7 +69,7 @@ export const stampLook = (id) => LOOKS[(STAMPS.find((s) => s.id === id) || {}).l
 
 export const LETTERS = [
   { id: 'l1', photo: 'photo-soup-home', envelope: 'rose', from: 'Mẹ', mine: false, date: 'Oct 16', kind: 'photo', prompt: 'A little piece of home', title: 'The house is quiet without you', body: 'I tried the recipe you sent. Your dad ate two bowls. I don’t say it enough, but the house is quiet without you.', stamp: 'listen', unread: true, saved: true },
-  { id: 'l2', envelope: 'mint', from: 'Ba', mine: false, date: 'Oct 15', kind: 'voice', prompt: 'Something you noticed today', title: 'Voice note, 1:12', body: 'A voice note about the garden and the neighbor’s new dog.', stamp: 'distract', unread: true },
+  { id: 'l2', envelope: 'mint', from: 'Ba', mine: false, date: 'Oct 15', kind: 'voice', prompt: 'Something you noticed today', title: 'Voice note, 1:12', seconds: 72, body: 'A voice note about the garden and the neighbor’s new dog.', stamp: 'distract', unread: true },
   { id: 'l3', photo: 'photo-studio-desk', envelope: 'lilac', from: 'Me', mine: true, date: 'Oct 14', kind: 'photo', prompt: 'Picture your workstation', title: 'My workstation, mess and all', body: 'Second pass on the series. The plant is doing better than me.', stamp: 'listen' },
   { id: 'l4', envelope: 'butter', from: 'Mẹ', mine: false, date: 'Oct 12', kind: 'text', prompt: 'Something you want them to know', title: '“Eat something warm before crit.”', body: 'Eat something warm before crit. You always forget.', stamp: 'cheer', saved: true },
   { id: 'l5', envelope: 'sky', from: 'Me', mine: true, date: 'Oct 10', kind: 'text', prompt: 'Write about your evening', title: 'Bún riêu night', body: 'Jun made bún riêu and it tasted almost like yours.', stamp: 'home' },
@@ -90,7 +90,7 @@ export const SPLASH_NOTES = [
 export const RECAP_EARLIER = [
   { id: 'a1', month: 'Aug', from: 'Mẹ', mine: false, date: 'Aug 24', kind: 'text', title: 'First letter of the semester', body: 'Did you find the good bánh mì place yet? Send me a photo of your room when it’s not messy. So, never.', stamp: 'home' },
   { id: 'a2', month: 'Aug', from: 'Me', mine: true, date: 'Aug 26', kind: 'photo', photo: 'photo-city-orange', title: 'First night in the city', caption: 'It doesn’t get dark here, it just gets orange.', body: '', stamp: 'space' },
-  { id: 'a3', month: 'Aug', from: 'Ba', mine: false, date: 'Aug 30', kind: 'voice', title: 'Voice note, 0:48', body: 'Ba describing the tomatoes, very seriously.', stamp: 'distract' },
+  { id: 'a3', month: 'Aug', from: 'Ba', mine: false, date: 'Aug 30', kind: 'voice', title: 'Voice note, 0:48', seconds: 48, body: 'Ba describing the tomatoes, very seriously.', stamp: 'distract' },
   { id: 's1', month: 'Sep', from: 'Me', mine: true, date: 'Sep 12', kind: 'photo', photo: 'photo-paint-swatches', title: 'Color theory week', caption: 'Mixed 40 greys. Liked two.', body: '', stamp: 'cheer' },
   { id: 's2', month: 'Sep', from: 'Mẹ', mine: false, date: 'Sep 18', kind: 'text', title: 'About breakfast', body: 'I know you skip it. I’m not saying anything. I’m just saying.', stamp: 'support' },
   { id: 's3', month: 'Sep', from: 'Mẹ', mine: false, date: 'Sep 25', kind: 'photo', photo: 'photo-pho-ga', title: 'Made your favorite', caption: 'Phở gà, the way you like it. One extra bowl, for no one.', body: '', stamp: 'home' },
