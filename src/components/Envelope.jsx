@@ -25,14 +25,14 @@ export default function Envelope({ color = 'lilac', stamp, stampArt, sealing, wi
   const k = width / 202
   return (
     <div className="holo" role="img" aria-label={`${env.label} envelope${stamp ? ' with a stamp' : ''}`}
-      style={{ '--holo': holo(env.c), width, height: 136 * k, borderRadius: 22 * k, boxShadow: '0 24px 60px rgba(120,110,200,.22)', transition: 'box-shadow .3s', ...style }}>
-      <svg width={width} height={136 * k} viewBox="0 0 202 136" aria-hidden="true" style={{ position: 'absolute', inset: 0 }}>
+      style={{ '--holo': holo(env.c), width, height: 136 * k, borderRadius: 22 * k, WebkitMaskImage: '-webkit-radial-gradient(white, black)', boxShadow: '0 24px 60px rgba(120,110,200,.22)', transition: 'box-shadow .3s', ...style }}>
+      <svg width={width} height={136 * k} viewBox="0 0 202 136" aria-hidden="true" style={{ position: 'absolute', inset: 0, clipPath: `inset(0 round ${22 * k}px)` }}>
         <path d="M4 8l97 70L198 8" fill="none" stroke="rgba(255,255,255,.95)" strokeWidth="2.5" strokeLinejoin="round" />
       </svg>
       {/* wax seal */}
       <span aria-hidden="true" style={{ position: 'absolute', left: 84 * k, top: 60 * k, width: 34 * k, height: 34 * k, borderRadius: '50%', background: '#fff', opacity: 0.88, boxShadow: sealing ? `0 0 0 ${6 * k}px rgba(255,255,255,.35)` : 'none', animation: sealing ? 'sealPress .5s .55s cubic-bezier(.3,1.6,.5,1) both' : 'none' }} />
-      {/* stamp slot */}
-      <span aria-hidden="true" style={{ position: 'absolute', right: 12 * k, top: 12 * k, width: 32 * k, height: 38 * k, borderRadius: 4 * k, border: stamp ? 'none' : `${1.5 * Math.max(k, 0.8)}px dashed rgba(255,255,255,.95)`, overflow: 'hidden', background: stamp ? '#fff' : 'transparent', padding: stamp ? 2.5 * k : 0, boxSizing: 'border-box', boxShadow: stamp ? '0 2px 6px rgba(29,29,34,.12)' : 'none', transform: stamp ? 'rotate(-4deg)' : 'none', animation: sealing && stamp ? 'stampIn .55s cubic-bezier(.2,.9,.3,1.2) both' : 'none' }}>
+      {/* stamp slot, bottom corner */}
+      <span aria-hidden="true" style={{ position: 'absolute', right: 14 * k, bottom: 12 * k, width: 32 * k, height: 38 * k, zIndex: 2, borderRadius: 4 * k, border: stamp ? 'none' : `${1.5 * Math.max(k, 0.8)}px dashed rgba(255,255,255,.95)`, overflow: 'hidden', background: stamp ? '#fff' : 'transparent', padding: stamp ? 2.5 * k : 0, boxSizing: 'border-box', boxShadow: stamp ? '0 2px 6px rgba(29,29,34,.12)' : 'none', transform: stamp ? 'rotate(-4deg)' : 'none', animation: sealing && stamp ? 'stampIn .55s cubic-bezier(.2,.9,.3,1.2) both' : 'none' }}>
         {stamp ? <span style={{ display: 'block', width: '100%', height: '100%', borderRadius: 2 * k, overflow: 'hidden' }}>{stampArt ? <img src={stampArt} alt="" style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' }} /> : <Shape look={stamp} />}</span> : null}
       </span>
     </div>

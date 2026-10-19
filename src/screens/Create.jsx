@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useApp } from '../store.jsx'
-import { LOOKS, PROMPTS, STAMPS } from '../data.js'
+import { LOOKS, PROMPTS, STAMPS, stampLook as stampFace } from '../data.js'
 import { Display, Dock, IconButton, Placeholder, Screen, Segmented, Tile, TopBar } from '../components/ui.jsx'
 import Shape from '../components/Shape.jsx'
 import Icon from '../components/Icon.jsx'
@@ -11,15 +11,16 @@ import { VoicePlayer, clock, startVoice } from '../components/Voice.jsx'
 
 const MODE_LABEL = { photo: 'Photo', voice: 'Voice memo', text: 'Words' }
 // Prototype stand-in for the camera: each prompt "sees" a fitting sample photo.
-const PHOTO_FOR = { slice: 'photo-city-orange', workstation: 'photo-studio-desk', smile: 'photo-persimmons', home: 'photo-soup-home' }
+const PHOTO_FOR = { slice: 'me-six-flags.webp', workstation: 'me-artbox.webp', smile: 'mom-changi.webp', home: 'mom-albania-still.webp' }
 // A photo is either one of the bundled sample images (by name) or a picture the person chose (a data URL).
-const photoUrl = (name) => (name && name.startsWith('data:') ? name : `${import.meta.env.BASE_URL}stamps/${name}.jpg`)
+// Names with an extension are used as-is; older bundled images are .jpg.
+const photoUrl = (name) => (name && name.startsWith('data:') ? name : `${import.meta.env.BASE_URL}stamps/${name && name.includes('.') ? name : `${name}.jpg`}`)
 
 /** When the draft is a reply, the letter being answered and who it goes to. */
 function useReply() {
   const { draft, letters } = useApp()
   const replyTo = draft.replyTo ? letters.find((l) => l.id === draft.replyTo) : null
-  const to = replyTo ? replyTo.from : 'Mẹ'
+  const to = replyTo ? replyTo.from : 'Mom'
   const replyPrompt = replyTo ? { title: `Write back to ${to}`, category: `Replying to “${replyTo.title}”` } : null
   return { replyTo, to, replyPrompt }
 }
@@ -135,7 +136,7 @@ export function Capture() {
   const pickMode = (m) => (m === 'text' ? (setDraft({ kind: 'text' }), go('write')) : setMode(m))
   // The camera view stays empty until the shutter (or library) is used; then the photo is shown to keep or retake.
   const [picked, setPicked] = useState(null)
-  const shot = picked || PHOTO_FOR[draft.promptId] || 'photo-paint-swatches'
+  const shot = picked || PHOTO_FOR[draft.promptId] || 'me-six-flags.webp'
   const library = useRef(null)
   const [taken, setTaken] = useState(false)
   // Camera roll: read the chosen picture and shrink it so the letter stays light.
@@ -642,7 +643,7 @@ export function Paper() {
         <Display small>Pick your paper</Display>
         <Segmented label="Paper" options={[{ value: 'postcard', label: 'Postcard' }, { value: 'letter', label: 'Letter' }]} value={paper} onChange={(v) => { if (v !== paper) setFlips((n) => n + 1); setDraft({ paper: v }) }} />
 
-        <div ref={area} onPointerDown={downArea} onPointerMove={move} onPointerUp={up} onPointerCancel={up} style={{ position: 'relative', height: 200, borderRadius: 24, background: 'var(--fill)', padding: 16, flexShrink: 0, touchAction: 'none' }}>
+        <div ref={area} onPointerDown={downArea} onPointerMove={move} onPointerUp={up} onPointerCancel={up} style={{ position: 'relative', height: 200, borderRadius: 24, background: 'radial-gradient(90% 80% at 18% 12%, rgba(217,205,251,.9) 0%, rgba(217,205,251,0) 60%), radial-gradient(80% 80% at 88% 92%, rgba(207,227,251,.9) 0%, rgba(207,227,251,0) 60%), linear-gradient(135deg, #efe8fd 0%, #fbe8f1 55%, #e5eefc 100%)', boxShadow: '0 24px 60px rgba(120,110,200,.18)', padding: 16, flexShrink: 0, touchAction: 'none' }}>
           <div key={paper} style={{ height: '100%', transformOrigin: '50% 50%', animation: flips ? 'flipIn .5s cubic-bezier(.2,.8,.2,1) both' : 'none' }}>
           {paper === 'postcard' ? (
             <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', height: '100%', background: '#fff', borderRadius: 14 }}>
@@ -650,11 +651,11 @@ export function Paper() {
               <div style={{ padding: 14, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
                 <div style={{ width: 40, height: 46, borderRadius: 4, border: '2px dashed var(--line)' }} />
                 <div style={{ alignSelf: 'stretch', height: 1.5, background: 'var(--line)', marginTop: 18 }} />
-                <span className="small" style={{ alignSelf: 'stretch', color: 'var(--ink-2)' }}>to Mẹ</span>
+                <span className="small" style={{ alignSelf: 'stretch', color: 'var(--ink-2)' }}>to Mom</span>
               </div>
             </div>
           ) : (
-            <div style={{ height: '100%', background: '#fff', borderRadius: 14, padding: '16px 18px', fontFamily: 'var(--serif)', fontSize: 17, lineHeight: 1.45, display: 'flex', flexDirection: 'column', gap: 4, overflow: 'hidden' }}><span>Dear Mẹ,</span><div style={{ flex: 1, minHeight: 0 }}><WrittenPage draft={draft} max={140} /></div></div>
+            <div style={{ height: '100%', background: '#fff', borderRadius: 14, padding: '16px 18px', fontFamily: 'var(--serif)', fontSize: 17, lineHeight: 1.45, display: 'flex', flexDirection: 'column', gap: 4, overflow: 'hidden' }}><span>Dear Mom,</span><div style={{ flex: 1, minHeight: 0 }}><WrittenPage draft={draft} max={140} /></div></div>
           )}
           </div>
           {items.map((st) => {
@@ -736,7 +737,7 @@ export function Paper() {
 /* ---------- Caption + stamp ---------- */
 const kind0 = (d) => (d.handwriting ? 'A handwritten note' : 'A few words')
 // A small look at what's going in the envelope: the photo as a postcard, the voice memo, or the note itself.
-function InsidePreview({ draft, kind, to }) {
+function InsidePreview({ draft, kind, to, onText }) {
   const serif = { fontFamily: 'var(--serif)', letterSpacing: '-0.01em' }
   const card = { background: '#fffdf9', borderRadius: 6, boxShadow: '0 1px 0 rgba(29,29,34,.04), 0 10px 24px rgba(29,29,34,.08)', marginBottom: 8 }
   if (kind === 'photo') {
@@ -766,7 +767,10 @@ function InsidePreview({ draft, kind, to }) {
     <div style={{ ...card, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 6, backgroundImage: 'repeating-linear-gradient(180deg, transparent 0 23px, #f0ece4 23px 24px)', backgroundPosition: '0 40px' }}>
       <span style={{ ...serif, fontSize: 16 }}>Dear {to},</span>
       {draft.handwriting ? <img src={draft.handwriting} alt="Your handwritten note" style={{ width: '100%', maxHeight: 110, objectFit: 'contain', objectPosition: 'left' }} />
-        : <span style={{ ...serif, fontSize: 15, lineHeight: '24px', color: 'var(--ink-2)', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{draft.text || 'Your note'}</span>}
+        : onText
+          ? <textarea aria-label="Your letter" className="inside-edit" value={draft.text || ''} placeholder="Write your note" rows={Math.max(2, (draft.text || '').split('\n').reduce((a, x) => a + Math.max(1, Math.ceil(x.length / 34)), 0))}
+              onChange={(e) => onText(e.target.value)} style={{ ...serif, fontSize: 15, lineHeight: '24px', color: 'var(--ink-2)' }} />
+          : <span style={{ ...serif, fontSize: 15, lineHeight: '24px', color: 'var(--ink-2)', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{draft.text || 'Your note'}</span>}
     </div>
   )
 }
@@ -796,7 +800,10 @@ export function Caption() {
     if (!s.look || !tile || !env || !scr || calmMotion()) { setLandedId(s.id); return }
     const sr = scr.getBoundingClientRect(), tr = tile.getBoundingClientRect(), er = env.getBoundingClientRect()
     const k = er.width / 202
-    setFlight({ n: Date.now(), s, from: { x: tr.left - sr.left, y: tr.top - sr.top, w: tr.width, h: tr.height }, to: { x: er.right - sr.left - 12 * k - 32 * k, y: er.top - sr.top + 12 * k, w: 32 * k, h: 38 * k } })
+    // Rects are in page pixels; the phone may be zoomed to fit the window, so convert back to the screen's own pixels.
+    const z = sr.width / (scr.offsetWidth || sr.width) || 1
+    const box = (r) => ({ x: r.x / z, y: r.y / z, w: r.w / z, h: r.h / z })
+    setFlight({ n: Date.now(), s, from: box({ x: tr.left - sr.left, y: tr.top - sr.top, w: tr.width, h: tr.height }), to: box({ x: er.right - sr.left - 14 * k - 32 * k, y: er.bottom - sr.top - 12 * k - 38 * k, w: 32 * k, h: 38 * k }) })
   }
   useLayoutEffect(() => {
     if (!flight || !flyer.current) return
@@ -834,15 +841,19 @@ export function Caption() {
     setSentKind(replyTo ? 'reply' : 'letter')
     go('sent')
   }
+  const sealT = useRef(0)
   const seal = () => {
     if (sealing) return
+    if (calmMotion()) { send(); return }
     setSealing(true)
-    setTimeout(send, 1300)
+    sealT.current = setTimeout(send, 1300)
   }
+  const skipSeal = () => { if (sealT.current) { clearTimeout(sealT.current); sealT.current = 0; send() } }
 
   return (
     <Screen>
       {sheet}
+      {sealing ? <button className="skip-tap" aria-label="Skip to sent" onClick={skipSeal} /> : null}
       <div className="screen-body scroll" style={{ paddingBottom: 110 }}>
         <TopBar left={<IconButton icon="back" label="Back" onClick={() => go(kind === 'text' ? 'paper' : 'capture')} />} right={<button className="pill outline small" onClick={() => go(kind === 'text' ? 'paper' : 'capture')}>{kind === 'text' ? 'Edit' : 'Retake'}</button>} />
         <Display small sub="Pick an envelope and a stamp.">Seal it with a stamp</Display>
@@ -902,14 +913,17 @@ export function Caption() {
           {stamp.cue && (
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: 'var(--fill)', borderRadius: 16, padding: '10px 14px' }}>
               <Icon name="sparkle" size={16} />
-              <span className="small" style={{ color: 'var(--ink-2)' }}>Mẹ will see a hint: “{stamp.cue}”</span>
+              <span className="small" style={{ color: 'var(--ink-2)' }}>Mom will see a hint: “{stamp.cue}”</span>
             </div>
           )}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flexShrink: 0 }}>
-          <span className="label">Inside</span>
-          <InsidePreview draft={draft} kind={kind} to={to} />
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+            <span className="label">Inside</span>
+            {kind === 'text' && !draft.handwriting ? <span className="small">Tap to edit</span> : null}
+          </div>
+          <InsidePreview draft={draft} kind={kind} to={to} onText={kind === 'text' ? (v) => setDraft({ text: v }) : undefined} />
           <textarea aria-label="Caption" className="field" rows="2" value={draft.caption} placeholder="Add a caption (optional)" onChange={(e) => setDraft({ caption: e.target.value })} />
         </div>
       </div>
@@ -919,15 +933,15 @@ export function Caption() {
 }
 
 /* ---------- Sent ---------- */
-const SENT_DOTS = [
+export const SENT_DOTS = [
   [38, 150, '#f7b8d2', 0], [60, 222, '#c9b8f5', 0.3], [52, 218, '#e6e0fa', 0.9], [44, 288, '#f7b8d2', 0.6], [56, 292, '#ecebf4', 1.2],
   [42, 362, '#f7b8d2', 0.2], [76, 360, '#c9b8f5', 0.8], [74, 434, '#c9b8f5', 1.1], [310, 186, '#c9b8f5', 0.4], [314, 182, '#fbd3e2', 1],
   [336, 254, '#e6e0fa', 0.5], [332, 258, '#fbd3e2', 0.1], [314, 324, '#c9b8f5', 0.7], [310, 328, '#e6e0fa', 1.3], [336, 398, '#c9b8f5', 0.35], [340, 394, '#fbd3e2', 0.95],
 ]
 
 // Sparkles left behind along the envelope's flight path: [x from center, y, color, delay].
-const SENT_PATH = 'M100 120 C 150 110, 190 40, 220 -40 S 270 -200, 290 -240'
-const SENT_SPARKS = [
+export const SENT_PATH = 'M100 120 C 150 110, 190 40, 220 -40 S 270 -200, 290 -240'
+export const SENT_SPARKS = [
   [14, 112, '#f7b8d2', 1.0], [38, 100, '#c9b8f5', 1.08], [60, 82, '#fbd3e2', 1.16], [78, 58, '#e6e0fa', 1.24],
   [94, 32, '#c9b8f5', 1.32], [108, 6, '#f7b8d2', 1.4], [122, -24, '#c9b8f5', 1.48], [138, -58, '#fbd3e2', 1.56],
 ]
@@ -959,10 +973,10 @@ export function Sent() {
           {SENT_SPARKS.map(([x, y, c, d], i) => (
             <span key={i} aria-hidden="true" style={{ position: 'absolute', left: `calc(50% + ${x}px)`, top: y, width: 6, height: 6, borderRadius: 3, background: c, opacity: 0, animation: `sparkTrail .9s ease-out ${d}s both` }} />
           ))}
-          <Envelope color={draft.envelope} stamp={stamp && stamp.look ? LOOKS[stamp.look] : null} width={202} style={{ animation: 'flyAway 2s cubic-bezier(.5,0,.3,1) both' }} />
+          <Envelope color={draft.envelope} stamp={stampFace(stamp)} width={202} style={{ animation: 'flyAway 2s cubic-bezier(.5,0,.3,1) both' }} />
         </div>
-        <h1 style={{ margin: '8px 0 0', fontSize: 48, fontWeight: 500, letterSpacing: '-0.03em', lineHeight: 1, animation: 'settleIn .6s cubic-bezier(.2,.8,.2,1) 1.6s both' }}>Sent!</h1>
-        <p className="body" style={{ textAlign: 'center', maxWidth: 260, marginTop: 6, fontSize: 16, animation: 'settleIn .6s cubic-bezier(.2,.8,.2,1) 1.75s both' }}>{line}</p>
+        <h1 style={{ margin: '8px 0 0', fontFamily: 'var(--serif)', fontSize: 54, fontWeight: 400, letterSpacing: '-0.02em', lineHeight: 1, animation: 'settleIn .6s cubic-bezier(.2,.8,.2,1) 1.6s both' }}>Sent!</h1>
+        <p className="body" style={{ textAlign: 'center', maxWidth: 270, marginTop: 8, fontFamily: 'var(--serif)', fontSize: 19, lineHeight: 1.35, animation: 'settleIn .6s cubic-bezier(.2,.8,.2,1) 1.75s both' }}>{line}</p>
       </div>
       <Dock><button className="pill block" onClick={() => { resetDraft(); go('home') }}>Back home</button></Dock>
     </Screen>
@@ -981,7 +995,7 @@ const SUGGEST_FOR = { listen: 'voice', cheer: 'text', advice: 'text', support: '
 export function Reply() {
   const { go, openLetter: l, setDraft, resetDraft } = useApp()
   const stamp = STAMPS.find((s) => s.id === l.stamp)
-  const look = stamp && stamp.look ? LOOKS[stamp.look] : null
+  const look = stampFace(stamp)
   const suggested = (stamp && SUGGEST_FOR[stamp.id]) || 'text'
   // Soft tint of the sender's stamp colors, used to tie the suggestion to their need.
   const tint = look ? `linear-gradient(100deg, ${look.c[0]}38, ${look.c[1]}4d)` : 'var(--fill)'

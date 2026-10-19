@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import Icon from './Icon.jsx'
 import Shape from './Shape.jsx'
 import { LOOKS } from '../data.js'
@@ -17,12 +17,44 @@ export function StatusBar() {
   )
 }
 
+// Screens in the main app get the bottom tab bar; onboarding and full-screen moments don't.
+const NAV_SCREENS = new Set(['home', 'prompt', 'capture', 'write', 'paper', 'caption', 'sent', 'mail', 'read', 'reply', 'history', 'recap'])
+
 export function Screen({ children, bg, className = '' }) {
+  const { route } = useApp()
+  const nav = className.includes('has-nav') || NAV_SCREENS.has(route)
   return (
-    <section className={`screen ${className}`} style={bg ? { background: bg } : undefined}>
+    <section className={`screen ${className}${nav && !className.includes('has-nav') ? ' has-nav' : ''}`} style={bg ? { background: bg } : undefined}>
       <StatusBar />
       {children}
+      {nav ? <AppNav /> : null}
     </section>
+  )
+}
+
+// Bottom tab bar. Each step of writing or reading stays under its tab; the highlight slides over from the last tab.
+const TAB_OF = { capture: 'prompt', write: 'prompt', paper: 'prompt', caption: 'prompt', sent: 'prompt', pulse: 'home', mail: 'history', read: 'history', reply: 'history' }
+const TABS = [['home', 'home', 'Home'], ['prompt', 'pen', 'Write'], ['history', 'envelope', 'Letters'], ['recap', 'book', 'Recap']]
+let lastTab = null
+
+export function AppNav() {
+  const { route, go } = useApp()
+  const cur = TAB_OF[route] || route
+  const [act, setAct] = useState(lastTab || cur)
+  useEffect(() => {
+    lastTab = cur
+    const t = setTimeout(() => setAct(cur), 40)
+    return () => clearTimeout(t)
+  }, [cur])
+  return (
+    <nav className="app-nav" aria-label="Main">
+      {TABS.map(([id, icon, label]) => (
+        <button key={id} className={`nav-tab${act === id ? ' on' : ''}`} data-tab={id} aria-current={cur === id ? 'page' : undefined} aria-label={label}
+          onClick={() => { if (id !== route) { lastTab = cur; go(id) } }}>
+          <Icon name={icon} size={20} /><span className="nav-label" aria-hidden="true">{label}</span>
+        </button>
+      ))}
+    </nav>
   )
 }
 
@@ -44,10 +76,18 @@ export function TopBar({ left, center, right }) {
   )
 }
 
-export function Progress({ step }) {
+// Onboarding progress: one segment per question. Answered ones fill in and can be tapped to go back.
+export function Progress({ step, total = 4 }) {
+  const { go } = useApp()
   return (
-    <div className="progress" aria-label={`Question ${step} of 5`}>
-      {[1, 2, 3, 4, 5].map((n) => <i key={n} className={n <= step ? 'on' : ''} />)}
+    <div className="progress" role="group" aria-label={`Question ${step} of ${total}`} style={{ gridTemplateColumns: `repeat(${total}, 1fr)` }}>
+      {Array.from({ length: total }, (_, k) => k + 1).map((n) => {
+        const back = n < step
+        return (
+          <button key={n} type="button" className={`pbar-seg${back ? ' done' : n === step ? ' cur' : ''}`} disabled={!back}
+            aria-label={back ? `Back to question ${n}` : `Question ${n}`} onClick={back ? () => go(`q${n}`) : undefined}><i /></button>
+        )
+      })}
     </div>
   )
 }
@@ -107,10 +147,26 @@ export function Hero({ look, title, sub, checks = [], onClick, children, label }
 }
 
 /** Grey grid tile: shape on top fading into the card, centered caption below. */
+// Pressing a tile tips it toward your finger with a soft highlight, then it springs back.
+const tiltAt = (e) => {
+  const b = e.currentTarget, r = b.getBoundingClientRect()
+  b.style.setProperty('--mx', ((e.clientX - r.left) / r.width).toFixed(3))
+  b.style.setProperty('--my', ((e.clientY - r.top) / r.height).toFixed(3))
+}
+const untilt = (e) => { const b = e.currentTarget; b.classList.remove('tilt'); b.style.removeProperty('--mx'); b.style.removeProperty('--my') }
+
 export function Tile({ look, caption, onClick, pressed, wide, children, label }) {
+  const l = look ? LOOKS[look] : null
+  const pic = l && l.shape === 'image'
+  // Pictures fill the tile; drawn shapes fill it too, over a wash of their own color.
+  const bg = l && !pic ? { background: `linear-gradient(180deg,#fff 0%,${l.c[1]} 100%)` } : l && l.tileBg ? { background: l.tileBg } : undefined
   return (
-    <button className={`tile${wide ? ' wide' : ''}`} onClick={onClick} aria-pressed={pressed} aria-label={label}>
-      <div className="art">{look ? <Shape look={LOOKS[look]} /> : null}</div>
+    <button className={`tile${wide ? ' wide' : ''}${l && l.darkLabel ? ' dark-cap' : ''}`} style={bg}
+      onClick={onClick} aria-pressed={pressed} aria-label={label}
+      onPointerDown={(e) => { tiltAt(e); e.currentTarget.classList.add('tilt'); if (navigator.vibrate) navigator.vibrate(8) }}
+      onPointerMove={(e) => { if (e.currentTarget.classList.contains('tilt')) tiltAt(e) }}
+      onPointerUp={untilt} onPointerCancel={untilt} onPointerLeave={untilt}>
+      <div className={l ? (pic ? 'art art-img' : 'art art-img art-gen') : 'art'}>{l ? <Shape look={l} /> : null}</div>
       {children}
       {caption ? <span className="cap">{caption}</span> : null}
     </button>

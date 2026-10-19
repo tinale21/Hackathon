@@ -1,8 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useApp } from '../store.jsx'
-import { LOOKS, RECAP_EARLIER, RECAP_MONTHS, STAMPS } from '../data.js'
+import { LOOKS, RECAP_EARLIER, RECAP_MONTHS, STAMPS, stampLook } from '../data.js'
 import { ENVELOPES, holo } from '../components/Envelope.jsx'
-import { Display, Dock, Hero, IconButton, Placeholder, Screen, Segmented, StatusBar, TabBar, Tile, TopBar } from '../components/ui.jsx'
+import { AppNav, Display, Dock, Hero, IconButton, Placeholder, Screen, Segmented, StatusBar, Tile, TopBar } from '../components/ui.jsx'
 import Shape from '../components/Shape.jsx'
 import Icon from '../components/Icon.jsx'
 import { useDiscardGuard } from '../components/Discard.jsx'
@@ -42,14 +42,14 @@ function OpeningEnvelope({ color, stampLook, phase, from, centerDy = -150, pull 
       <div style={{ position: 'absolute', left: 16, right: 16, top: 10, height: EH - 26, borderRadius: 12, background: '#fff', zIndex: phase >= 4 ? 6 : 2, boxShadow: '0 6px 18px rgba(29,29,34,.08)', padding: '16px 18px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 9,
         transform: phase >= 4 ? `translateY(${centerDy}px) scale(1.2)` : phase >= 3 ? 'translateY(-128px)' : 'none',
         transition: phase >= 4 ? 'transform .9s cubic-bezier(.45,0,.2,1)' : 'transform .6s cubic-bezier(.2,.8,.2,1)' }}>
-        <span className="serif" style={{ fontSize: 18 }}>Dear Linh,</span>
+        <span className="serif" style={{ fontSize: 18 }}>Dear Audrey,</span>
         {[92, 100, 78, 88].map((w, i) => <span key={i} style={{ height: 6, width: `${w}%`, borderRadius: 3, background: '#eceef3' }} />)}
         <span className="small" style={{ marginTop: 'auto', textAlign: 'right' }}>love, {from}</span>
       </div>
 
       {/* front pocket */}
       <div className="holo still" style={{ '--holo': bgFront, position: 'absolute', inset: 0, borderRadius: 24, clipPath: 'polygon(0 0, 50% 66%, 100% 0, 100% 100%, 0 100%)', zIndex: 3, ...fade }}>
-        <svg width={EW} height={EH} viewBox={`0 0 ${EW} ${EH}`} aria-hidden="true" style={{ position: 'absolute', inset: 0 }}>
+        <svg width={EW} height={EH} viewBox={`0 0 ${EW} ${EH}`} aria-hidden="true" style={{ position: 'absolute', inset: 0, clipPath: 'inset(0 round 24px)' }}>
           <path d={`M0 0 L${EW / 2} ${EH * 0.66} L${EW} 0`} fill="none" stroke="#fff" strokeOpacity=".9" strokeWidth="2.5" />
         </svg>
         {/* stamp + postmark on the front */}
@@ -65,7 +65,7 @@ function OpeningEnvelope({ color, stampLook, phase, from, centerDy = -150, pull 
       <div className="holo still" style={{ '--holo': bg, position: 'absolute', left: 0, right: 0, top: 0, height: EH * 0.66, borderRadius: '24px 24px 0 0', clipPath: 'polygon(0 0, 100% 0, 50% 100%)', transformOrigin: 'top center',
         transform: phase >= 2 ? 'rotateX(180deg)' : 'rotateX(0deg)', transition: 'transform .6s cubic-bezier(.4,0,.2,1), opacity .45s ease', zIndex: phase >= 3 ? 0 : 4, opacity: gone ? 0 : 1 }}>
         <div style={{ position: 'absolute', inset: 0, background: phase >= 2 ? 'rgba(255,255,255,.35)' : 'rgba(255,255,255,.12)', transition: 'background .6s' }} />
-        <svg width={EW} height={EH * 0.66} viewBox={`0 0 ${EW} ${EH * 0.66}`} aria-hidden="true" style={{ position: 'absolute', inset: 0 }}>
+        <svg width={EW} height={EH * 0.66} viewBox={`0 0 ${EW} ${EH * 0.66}`} aria-hidden="true" style={{ position: 'absolute', inset: 0, clipPath: 'inset(0 round 24px 24px 0 0)' }}>
           <path d={`M2 2 L${EW / 2} ${EH * 0.66 - 2} L${EW - 2} 2`} fill="none" stroke="#fff" strokeOpacity=".95" strokeWidth="2.5" />
         </svg>
       </div>
@@ -107,7 +107,7 @@ export function Mail() {
   const [centerDy, setCenterDy] = useState(-150)
   const envRef = useRef(null)
   const stamp = STAMPS.find((s) => s.id === l.stamp)
-  const stampLookV = stamp && stamp.look ? LOOKS[stamp.look] : null
+  const stampLookV = stampLook(stamp)
 
   // Pulling the seal down cracks it; far enough (or a quick flick) breaks it open.
   const [pull, setPull] = useState(0)
@@ -124,6 +124,7 @@ export function Mail() {
     onPointerCancel: () => { grab.current = null; setPull(0) },
   }
 
+  const skip = useRef(null)
   const open = () => {
     if (phase) return
     const finish = () => {
@@ -139,10 +140,13 @@ export function Mail() {
       setCenterDy(Math.round(sc.top + sc.height / 2 - letterCenter))
     }
     setPhase(1)
-    setTimeout(() => setPhase(2), 380)
-    setTimeout(() => setPhase(3), 950)
-    setTimeout(() => setPhase(4), 1550)
-    setTimeout(finish, 3100)
+    const timers = [
+      setTimeout(() => setPhase(2), 380),
+      setTimeout(() => setPhase(3), 950),
+      setTimeout(() => setPhase(4), 1550),
+      setTimeout(() => { skip.current = null; finish() }, 3100),
+    ]
+    skip.current = () => { timers.forEach(clearTimeout); skip.current = null; finish() }
   }
 
   return (
@@ -150,10 +154,11 @@ export function Mail() {
       {MAIL_DOTS.map(([x, y, c, d], i) => (
         <span key={i} aria-hidden="true" style={{ position: 'absolute', left: x, top: y + 130, width: 5, height: 5, borderRadius: 3, background: c, animation: `twinkle 1.8s ease-in-out ${d}s infinite` }} />
       ))}
+      {phase > 0 ? <button className="skip-tap" aria-label="Skip to the letter" onClick={() => skip.current && skip.current()} /> : null}
       <div className="screen-body">
-        <TopBar right={<IconButton icon="close" label="Close" onClick={() => go('home')} />} />
+        <TopBar right={<IconButton icon="close" label="Close" onClick={() => go(window.__readFrom || 'home')} />} />
         <div style={{ opacity: phase >= 4 ? 0 : 1, transition: 'opacity .5s ease' }}>
-          <Display sub={`for Linh, from ${l.from} · ${l.date}`}>New mail</Display>
+          <Display sub={`for Audrey, from ${l.from} · ${l.date}`}>New mail</Display>
         </div>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 28, paddingBottom: 150 }}>
           <div style={{ position: 'relative' }}>
@@ -244,10 +249,10 @@ function PhotoViewer({ src, alt, caption, from, onClose }) {
 export function Read() {
   const { go, openLetter: l, setLetters } = useApp()
   const stamp = STAMPS.find((s) => s.id === l.stamp)
-  const look = stamp && stamp.look ? LOOKS[stamp.look] : null
+  const look = stampLook(stamp)
   const toggleSave = () => setLetters((ls) => ls.map((x) => (x.id === l.id ? { ...x, saved: !x.saved } : x)))
-  const to = l.mine ? 'Mẹ' : 'Linh'
-  const signer = l.mine ? 'Linh' : l.from
+  const to = l.mine ? 'Mom' : 'Audrey'
+  const signer = l.mine ? 'Audrey' : l.from
   const caption = l.caption || l.title
   const serif = { fontFamily: 'var(--serif)', letterSpacing: '-0.01em' }
   const [zoom, setZoom] = useState(null)
@@ -260,10 +265,10 @@ export function Read() {
 
   return (
     <Screen>
-      {zoom ? <PhotoViewer src={`${import.meta.env.BASE_URL}stamps/${l.photo}.jpg`} alt={`Photo from ${l.mine ? 'you' : l.from}`} caption={caption} from={zoom} onClose={() => setZoom(null)} /> : null}
+      {zoom && l.photo ? <PhotoViewer src={photoUrl(l.photo)} alt={`Photo from ${l.mine ? 'you' : l.from}`} caption={caption} from={zoom} onClose={() => setZoom(null)} /> : null}
       <div className="screen-body scroll" style={{ paddingBottom: 110, gap: 22 }}>
         <TopBar
-          left={<IconButton icon="back" label="Back" onClick={() => go('home')} />}
+          left={<IconButton icon="back" label="Back" onClick={() => go(window.__readFrom || 'home')} />}
           center={<span className="small">{l.mine ? 'Sent by you' : <>from <b style={{ color: 'var(--ink)', fontWeight: 500 }}>{l.from}</b></>} · {l.date}</span>}
           right={<IconButton icon="bookmark" label={l.saved ? 'Saved privately. Tap to remove' : 'Save privately (only you see this)'} onClick={toggleSave} style={l.saved ? { background: 'var(--ink)', color: '#fff' } : undefined} />}
         />
@@ -282,8 +287,10 @@ export function Read() {
 
           {l.kind === 'photo' && (
             <figure style={{ margin: 0, background: '#fff', padding: '10px 10px 14px', borderRadius: 4, boxShadow: '0 2px 10px rgba(29,29,34,.08)', transform: 'rotate(-1.2deg)' }}>
-              {l.photo
-                ? <img src={`${import.meta.env.BASE_URL}stamps/${l.photo}.jpg`} alt={`Photo from ${l.mine ? 'you' : l.from}. Tap to view full screen`} role="button" tabIndex={0} onClick={zoomIn} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); zoomIn(e) } }}
+              {l.video
+                ? <video {...clipProps(l)} aria-label={`Video from ${l.mine ? 'you' : l.from}`} style={{ display: 'block', width: '100%', height: 220, objectFit: 'cover', borderRadius: 2 }} />
+                : l.photo
+                ? <img src={photoUrl(l.photo)} alt={`Photo from ${l.mine ? 'you' : l.from}. Tap to view full screen`} role="button" tabIndex={0} onClick={zoomIn} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); zoomIn(e) } }}
                     style={{ display: 'block', width: '100%', height: 220, objectFit: 'cover', borderRadius: 2, cursor: 'zoom-in', visibility: zoom ? 'hidden' : 'visible' }} />
                 : <Placeholder label={`Photo from ${l.mine ? 'you' : l.from}`} style={{ height: 200, borderRadius: 2 }} />}
               <figcaption style={{ ...serif, fontStyle: 'italic', fontSize: 17, lineHeight: 1.35, color: 'var(--ink-2)', marginTop: 10, textAlign: 'center' }}>{caption}</figcaption>
@@ -324,7 +331,10 @@ export function Read() {
 
 /* ---------- History: a gallery of every letter ---------- */
 // A photo is either one of the bundled sample images (by name) or a picture the person chose (a data URL).
-const photoUrl = (name) => (name && name.startsWith('data:') ? name : `${import.meta.env.BASE_URL}stamps/${name}.jpg`)
+const photoUrl = (name) => (name && name.startsWith('data:') ? name : `${import.meta.env.BASE_URL}stamps/${name && name.includes('.') ? name : `${name}.jpg`}`)
+// A letter's moving photo: muted, looping, inline (so phones play it in place).
+const clipProps = (l) => (l && l.video ? { src: photoUrl(l.video), autoPlay: true, muted: true, loop: true, playsInline: true, preload: 'auto',
+  ref: (el) => { if (el) { el.muted = true; const p = el.play(); if (p && p.catch) p.catch(() => {}) } } } : {})
 const TILTS = [-1.6, 1.2, -0.8, 1.8, -1.2, 0.9]
 
 function MiniStamp({ look }) {
@@ -337,8 +347,8 @@ function MiniStamp({ look }) {
 
 function GalleryItem({ l, i, onOpen, onSave }) {
   const s = STAMPS.find((x) => x.id === l.stamp)
-  const look = s && s.look ? LOOKS[s.look] : null
-  const who = l.mine ? `to Mẹ` : `from ${l.from}`
+  const look = stampLook(s)
+  const who = l.mine ? `to Mom` : `from ${l.from}`
   const paper = { background: '#fffdf9', position: 'relative', overflow: 'hidden' }
   const serif = { fontFamily: 'var(--serif)', letterSpacing: '-0.01em' }
 
@@ -347,8 +357,10 @@ function GalleryItem({ l, i, onOpen, onSave }) {
     object = (
       <div style={{ ...paper, background: '#fff', padding: '7px 7px 10px' }}>
         <MiniStamp look={look} />
-        {l.photo
-          ? <img src={photoUrl(l.photo)} alt="" style={{ display: 'block', width: '100%', height: 130 + (i % 3) * 22, objectFit: 'cover', borderRadius: 2 }} />
+        {l.photo || l.video
+          ? (l.video
+            ? <video {...clipProps(l)} aria-hidden="true" style={{ display: 'block', width: '100%', height: 130 + (i % 3) * 22, objectFit: 'cover', borderRadius: 2 }} />
+            : <img src={photoUrl(l.photo)} alt="" style={{ display: 'block', width: '100%', height: 130 + (i % 3) * 22, objectFit: 'cover', borderRadius: 2 }} />)
           : <Placeholder style={{ height: 130 + (i % 3) * 22, borderRadius: 2 }} />}
         <span style={{ ...serif, display: 'block', fontStyle: 'italic', fontSize: 13, lineHeight: 1.3, color: 'var(--ink-2)', marginTop: 7, textAlign: 'center' }}>{l.caption || l.title}</span>
       </div>
@@ -357,20 +369,20 @@ function GalleryItem({ l, i, onOpen, onSave }) {
     object = (
       <div style={{ ...paper, padding: '14px 12px 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
         <MiniStamp look={look} />
-        <span style={{ ...serif, fontSize: 14 }}>Dear {l.mine ? 'Mẹ' : 'Linh'},</span>
+        <span style={{ ...serif, fontSize: 14 }}>Dear {l.mine ? 'Mom' : 'Audrey'},</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--fill)', borderRadius: 14, height: 30, padding: '0 8px' }}><Icon name="play" size={13} /><Wave n={14} w={80} /></span>
-        <span style={{ ...serif, fontStyle: 'italic', fontSize: 13, alignSelf: 'flex-end' }}>— {l.mine ? 'Linh' : l.from}</span>
+        <span style={{ ...serif, fontStyle: 'italic', fontSize: 13, alignSelf: 'flex-end' }}>— {l.mine ? 'Audrey' : l.from}</span>
       </div>
     )
   } else {
     object = (
       <div style={{ ...paper, padding: '14px 12px 12px', display: 'flex', flexDirection: 'column', gap: 6, backgroundImage: 'repeating-linear-gradient(180deg, transparent 0 19px, #f0ece4 19px 20px)', backgroundPosition: '0 34px' }}>
         <MiniStamp look={look} />
-        <span style={{ ...serif, fontSize: 14 }}>Dear {l.mine ? 'Mẹ' : 'Linh'},</span>
+        <span style={{ ...serif, fontSize: 14 }}>Dear {l.mine ? 'Mom' : 'Audrey'},</span>
         {l.handwriting
           ? <img src={l.handwriting} alt="" style={{ width: '100%', maxHeight: 90, objectFit: 'contain', objectPosition: 'left' }} />
           : <span style={{ ...serif, fontSize: 13, lineHeight: '20px', color: 'var(--ink-2)', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{l.body || l.title}</span>}
-        <span style={{ ...serif, fontStyle: 'italic', fontSize: 13, alignSelf: 'flex-end' }}>— {l.mine ? 'Linh' : l.from}</span>
+        <span style={{ ...serif, fontStyle: 'italic', fontSize: 13, alignSelf: 'flex-end' }}>— {l.mine ? 'Audrey' : l.from}</span>
       </div>
     )
   }
@@ -403,8 +415,9 @@ export function History() {
   const needle = q.trim().toLowerCase()
   const shown = letters
     .filter((l) => f === 'All' || (f === 'Saved' ? l.saved : f === 'Sent' ? l.mine : !l.mine))
-    .filter((l) => !needle || [l.title, l.caption, l.body, l.prompt, l.from, l.mine ? 'me linh sent' : 'received', l.date].filter(Boolean).join(' ').toLowerCase().includes(needle))
-  const open = (l) => { setOpenId(l.id); go('read') }
+    .filter((l) => !needle || [l.title, l.caption, l.body, l.prompt, l.from, l.mine ? 'me audrey sent' : 'received', l.date].filter(Boolean).join(' ').toLowerCase().includes(needle))
+  // Unopened letters still go through the envelope first.
+  const open = (l) => { setOpenId(l.id); go(l.unread && !l.mine ? 'mail' : 'read') }
   const cols = [shown.filter((_, i) => i % 2 === 0), shown.filter((_, i) => i % 2 === 1)]
 
   // When the filter or search changes, cards glide from where they were to their new spot; new ones fade up.
@@ -463,14 +476,13 @@ export function History() {
           </div>
         )}
       </div>
-      <TabBar active="letters" />
     </Screen>
   )
 }
 
 /* ---------- Recap book: a full-screen, swipe-up feed (like Reels / TikTok) ---------- */
 const MONTH_ORDER = ['Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-const lookOf = (l) => { const st = STAMPS.find((x) => x.id === l.stamp); return st && st.look ? LOOKS[st.look] : LOOKS.silk }
+const lookOf = (l) => { const st = STAMPS.find((x) => x.id === l.stamp); return stampLook(st) || LOOKS.silk }
 // Recap backgrounds move: two big soft glows in the card's colors float slowly behind the content.
 // (They keep moving even with reduce motion on — see .glow-a / .glow-b in styles.css.)
 const DRIFT = { isolation: 'isolate', overflow: 'hidden' }
@@ -501,11 +513,31 @@ function Mask({ on, delay = 0, children, style }) {
   )
 }
 
+// Real faces where we have them, an initial otherwise.
+const AVATARS = { Mom: 'avatar-mom.webp', You: 'avatar-me.webp', Audrey: 'avatar-me.webp' }
 function Avatar({ name, look, dark }) {
   return (
     <span aria-hidden="true" style={{ width: 34, height: 34, borderRadius: 17, flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', ...serif, fontSize: 16,
-      background: `linear-gradient(135deg, ${look.c[0]}, ${look.c[1]})`, color: '#1d1d22', boxShadow: dark ? '0 0 0 2px rgba(255,255,255,.9)' : '0 0 0 2px #fff' }}>{name.slice(0, 1)}</span>
+      background: `linear-gradient(135deg, ${look.c[0]}, ${look.c[1]})`, color: '#1d1d22', boxShadow: dark ? '0 0 0 2px rgba(255,255,255,.9)' : '0 0 0 2px #fff', overflow: 'hidden' }}>
+      {AVATARS[name] ? <img src={photoUrl(AVATARS[name])} alt="" draggable="false" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%', display: 'block' }} /> : name.slice(0, 1)}
+    </span>
   )
+}
+
+// Numbers on the recap covers count up when the page turns to them.
+function CountUp({ to, on, delay = 400, dur = 600 }) {
+  const [n, setN] = useState(on && !calm() ? 0 : to)
+  useEffect(() => {
+    if (!on || calm() || to < 2) { setN(to); return }
+    let raf = 0
+    const t0 = performance.now() + delay
+    const tick = (t) => { const k = Math.min(1, Math.max(0, (t - t0) / dur)); setN(Math.round(to * (1 - Math.pow(1 - k, 4)))); if (k < 1) raf = requestAnimationFrame(tick) }
+    const done = setTimeout(() => { cancelAnimationFrame(raf); setN(to) }, delay + dur + 150)
+    setN(0)
+    raf = requestAnimationFrame(tick)
+    return () => { cancelAnimationFrame(raf); clearTimeout(done) }
+  }, [to, on]) // eslint-disable-line react-hooks/exhaustive-deps
+  return <span style={{ fontVariantNumeric: 'tabular-nums' }}>{n}</span>
 }
 
 function RailButton({ icon, label, active, onClick, dark, fill, show, delay = 0 }) {
@@ -545,18 +577,20 @@ function LetterSlide({ l, active, saved, onSave, onReply, h = 764 }) {
   }
   const fg = dark ? '#fff' : 'var(--ink)'
   const who = l.mine ? 'You' : l.from
-  const to = l.mine ? (l.to || 'Mẹ') : 'you'
+  const to = l.mine ? (l.to || 'Mom') : 'you'
 
   let stage
   if (l.kind === 'photo') {
-    const src = l.photo ? photoUrl(l.photo) : null
+    const src = l.photo ? photoUrl(l.photo) : l.video ? photoUrl(l.video) : null
+    // Video letters play (muted, looping) in both the blurred backdrop and the print.
+    const media = (props) => (l.video ? <video {...clipProps(l)} {...props} /> : <img src={src} {...props} />)
     stage = (
       <>
-        {src ? <img src={src} alt="" aria-hidden="true" style={{ position: 'absolute', inset: -40, width: 'calc(100% + 80px)', height: 'calc(100% + 80px)', objectFit: 'cover', filter: 'blur(28px) brightness(.62) saturate(1.1)' }} />
+        {src ? media({ alt: '', 'aria-hidden': 'true', style: { position: 'absolute', inset: -40, width: 'calc(100% + 80px)', height: 'calc(100% + 80px)', objectFit: 'cover', filter: 'blur(28px) brightness(.62) saturate(1.1)' } })
           : <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(160deg, ${look.c[0]}, ${look.c[1]})`, filter: 'brightness(.6)' }} />}
         <div style={{ position: 'absolute', left: 30, right: 30, top: 'min(128px, 15cqh)' }}>
         <div style={{ '--tilt': '-1.5deg', transform: 'rotate(var(--tilt))', background: '#fff', padding: '10px 10px 16px', borderRadius: 3, boxShadow: '0 30px 60px rgba(0,0,0,.35)', animation: B(active, 'dropIn', 0, 0.95) }}>
-          {src ? <img src={src} alt={l.caption || l.title} style={{ display: 'block', width: '100%', height: 'max(140px, min(300px, calc(100cqh - 380px)))', objectFit: 'cover', borderRadius: 2 }} /> : <Placeholder style={{ height: 'max(140px, min(300px, calc(100cqh - 380px)))', borderRadius: 2 }} />}
+          {src ? media({ alt: l.caption || l.title, style: { display: 'block', width: '100%', height: 'max(140px, min(300px, calc(100cqh - 380px)))', objectFit: 'cover', borderRadius: 2 } }) : <Placeholder style={{ height: 'max(140px, min(300px, calc(100cqh - 380px)))', borderRadius: 2 }} />}
           <span style={{ ...serif, display: 'block', fontStyle: 'italic', fontSize: 17, lineHeight: 1.35, color: 'var(--ink-2)', marginTop: 12, textAlign: 'center' }}><Mask on={active} delay={0.35}>{l.caption || l.title}</Mask></span>
         </div>
         </div>
@@ -588,10 +622,10 @@ function LetterSlide({ l, active, saved, onSave, onReply, h = 764 }) {
         <div style={{ width: '100%' }}>
         <div style={{ '--tilt': '1deg', width: '100%', background: '#fffdf9', borderRadius: 6, padding: '24px 24px 20px', transform: 'rotate(var(--tilt))', boxShadow: '0 30px 60px rgba(29,29,34,.12)', display: 'flex', flexDirection: 'column', gap: 12,
           backgroundImage: 'repeating-linear-gradient(180deg, transparent 0 31px, #f0ece4 31px 32px)', backgroundPosition: '0 58px', animation: B(active, 'dropIn', 0, 0.95) }}>
-          <span style={{ ...serif, fontSize: 21, animation: B(active, 'bounceUp', 0.35) }}>Dear {l.mine ? to : 'Linh'},</span>
+          <span style={{ ...serif, fontSize: 21, animation: B(active, 'bounceUp', 0.35) }}>Dear {l.mine ? to : 'Audrey'},</span>
           {l.handwriting ? <img src={l.handwriting} alt="Handwritten note" style={{ width: '100%', maxHeight: 260, objectFit: 'contain', objectPosition: 'left' }} />
             : <span style={{ ...serif, fontSize: 21, lineHeight: '32px' }}><Mask on={active} delay={0.3}>{l.body || l.title}</Mask></span>}
-          <span style={{ ...serif, fontStyle: 'italic', fontSize: 19, alignSelf: 'flex-end', animation: B(active, 'bounceUp', 0.5) }}>— {l.mine ? 'Linh' : l.from}</span>
+          <span style={{ ...serif, fontStyle: 'italic', fontSize: 19, alignSelf: 'flex-end', animation: B(active, 'bounceUp', 0.5) }}>— {l.mine ? 'Audrey' : l.from}</span>
         </div>
         </div>
       </div>
@@ -645,7 +679,7 @@ function ChapterSlide({ m, items, active }) {
         <span className="label" style={{ animation: B(active, 'popIn', 0, 0.6) }}>Chapter {MONTH_ORDER.indexOf(m.id) + 1}</span>
         <h2 className="display" style={{ fontSize: 64, margin: 0 }} aria-label={m.name}><Mask on={active} delay={0.1}>{m.name}</Mask></h2>
         <span style={{ ...serif, fontStyle: 'italic', fontSize: 22, color: 'var(--ink-2)', animation: B(active, 'bounceUp', 0.3) }}>{m.theme}</span>
-        <span className="small" style={{ marginTop: 6, animation: B(active, 'bounceUp', 0.4) }}>{items.length} letters · {photos} photo{photos === 1 ? '' : 's'} · {voice} voice note{voice === 1 ? '' : 's'}</span>
+        <span className="small" style={{ marginTop: 6, animation: B(active, 'bounceUp', 0.4) }}><CountUp to={items.length} on={active} /> letters · <CountUp to={photos} on={active} delay={480} /> photo{photos === 1 ? '' : 's'} · <CountUp to={voice} on={active} delay={560} /> voice note{voice === 1 ? '' : 's'}</span>
       </div>
     </div>
   )
@@ -719,7 +753,7 @@ export function Recap() {
 
   return (
     <section className="screen" style={{ background: '#111', color: dark ? '#fff' : 'var(--ink)', transition: 'color .25s' }}>
-      <div ref={feed} className="scroll" onScroll={onScroll} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 80, zIndex: 0, isolation: 'isolate', scrollSnapType: 'y mandatory', overscrollBehavior: 'contain' }}>
+      <div ref={feed} className="scroll" onScroll={onScroll} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 96, zIndex: 0, isolation: 'isolate', scrollSnapType: 'y mandatory', overscrollBehavior: 'contain' }}>
         {slides.map((s, i) => (
           <div key={s.key} style={{ position: 'relative', height: '100%', containerType: 'size', scrollSnapAlign: 'start', scrollSnapStop: 'always', overflow: 'hidden' }}>
             {Math.abs(i - idx) > 2 ? null
@@ -728,7 +762,7 @@ export function Recap() {
                   <span className="label" style={{ animation: B(i === idx, 'popIn', 0, 0.6) }}>Fall 2026</span>
                   <h1 className="display" style={{ fontSize: 54, margin: 0 }} aria-label="Your fall, in letters"><Mask on={i === idx} delay={0.1}>Your fall,</Mask><Mask on={i === idx} delay={0.22}>in letters</Mask></h1>
                   <div style={{ position: 'relative', width: 250, height: 160, margin: '14px 0' }}>
-                    {['art-poppy-field', 'art-vetheuil', 'art-water-lilies'].map((p, k) => (
+                    {['mom-changi.webp', 'me-six-flags.webp', 'mom-albania-still.webp'].map((p, k) => (
                       <div key={p} className="postage-wrap" style={{ position: 'absolute', left: 30 + k * 52, top: k === 1 ? 0 : 18, '--tilt': `${[-9, 3, 11][k]}deg`, transform: 'rotate(var(--tilt))', zIndex: k === 1 ? 2 : 1, animation: B(i === idx, 'dropIn', 0.35 + [0.08, 0, 0.16][k], 1.1) }}>
                         <div className="postage" style={{ width: 96, height: 118 }}><img src={photoUrl(p)} alt="" style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' }} /></div>
                       </div>
@@ -742,7 +776,9 @@ export function Recap() {
                 <LetterSlide l={s.l} h={slideH} active={i === idx} saved={saved.has(s.l.id)}
                   onSave={() => toggle(setSaved, s.l.id)} onReply={() => reply(s.l)} />
               ) : s.type === 'loading' ? (
-                <div style={{ position: 'absolute', inset: 0, background: '#fbfaf8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span className="small">Turning the page…</span></div>
+                <div style={{ position: 'absolute', inset: 0, background: '#fbfaf8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div className="skel-page"><span className="skel skel-paper" aria-hidden="true" /><span className="small">Turning the page…</span></div>
+                </div>
               ) : (
                 <div style={{ position: 'absolute', inset: 0, background: HAZE, ...DRIFT, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, textAlign: 'center', padding: '0 36px' }}><Glow a="#bfe3c9" b="#e4efc8" />
                   <span className="label">You’re all caught up</span>
@@ -759,7 +795,7 @@ export function Recap() {
       <div style={{ position: 'relative', zIndex: 6, pointerEvents: 'none', willChange: 'transform' }}>
         <StatusBar />
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 20px 0' }}>
-          <button className="icon-btn ghost" aria-label="Back" onClick={() => go('history')} style={{ pointerEvents: 'auto', background: dark ? 'rgba(255,255,255,.18)' : undefined, color: dark ? '#fff' : undefined }}><Icon name="back" /></button>
+          <button className="icon-btn ghost" aria-label="Back" onClick={() => go(window.__recapFrom || 'history')} style={{ pointerEvents: 'auto', background: dark ? 'rgba(255,255,255,.18)' : undefined, color: dark ? '#fff' : undefined }}><Icon name="back" /></button>
           <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textShadow: dark ? '0 1px 6px rgba(0,0,0,.35)' : 'none' }}>
             <span style={{ fontSize: 15, fontWeight: 600 }}>Recap book</span>
             {month ? <span style={{ fontSize: 12, opacity: 0.75 }}>{month} 2026</span> : null}
@@ -770,7 +806,8 @@ export function Recap() {
       <div aria-hidden="true" style={{ position: 'absolute', right: 5, top: 130, bottom: 210, width: 3, borderRadius: 2, background: dark ? 'rgba(255,255,255,.2)' : 'rgba(29,29,34,.08)', zIndex: 6 }}>
         <span style={{ position: 'absolute', left: 0, right: 0, top: 0, height: `${((idx + 1) / slides.length) * 100}%`, borderRadius: 2, background: dark ? '#fff' : 'var(--ink)', transition: 'height .3s' }} />
       </div>
-      <TabBar active="letters" solid style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 80, boxSizing: 'border-box', zIndex: 7, borderTop: '1px solid rgba(29,29,34,.06)' }} />
+      <div aria-hidden="true" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 96, background: '#fff', zIndex: 5 }} />
+      <AppNav />
     </section>
   )
 }

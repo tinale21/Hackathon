@@ -1,3 +1,5 @@
+import { useRef } from 'react'
+
 // 24px line icons, 1.6 stroke, currentColor. Paths match the Pastel design system set.
 const P = {
   home: <><path d="M4 11l8-7 8 7v9H4z" /><path d="M10 20v-5h4v5" /></>,
@@ -33,12 +35,18 @@ const P = {
   trash: <><path d="M4 7h16M9 7V4h6v3" /><path d="M6 7l1 13h10l1-13" /></>,
   play: <path d="M7 4l13 8-13 8z" fill="currentColor" stroke="none" />,
   pause: <><rect x="6.5" y="5" width="4" height="14" rx="1.5" fill="currentColor" stroke="none" /><rect x="13.5" y="5" width="4" height="14" rx="1.5" fill="currentColor" stroke="none" /></>,
+  globe: <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9M12 3c-2.5 2.6-3.8 5.6-3.8 9s1.3 6.4 3.8 9" /></>,
+  bell: <><path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z" /><path d="M10 20.5a2 2 0 0 0 4 0" /></>,
   stop: <rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" stroke="none" />,
 }
 
 export default function Icon({ name, size = 20, stroke = 1.6, style }) {
+  // When an icon changes in place (play to pause, mic to stop), the new one pops in.
+  const prev = useRef(name)
+  const swapped = useRef(false)
+  if (prev.current !== name) { prev.current = name; swapped.current = true }
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={style}>
+    <svg key={name} className={swapped.current ? 'ic-swap' : undefined} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={style}>
       {P[name]}
     </svg>
   )

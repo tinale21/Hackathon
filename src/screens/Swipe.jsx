@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useApp } from '../store.jsx'
 import { PROMPTS } from '../data.js'
-import { Screen, TabBar } from '../components/ui.jsx'
+import { Screen } from '../components/ui.jsx'
 import Icon from '../components/Icon.jsx'
 
 /*
@@ -16,7 +16,13 @@ const MODES = [
   { id: 'text', label: 'Words', icon: 'text' },
 ]
 
+// The end-of-deck card uses the same tide gradient in soft lilac.
+const DONE = { card: ['#e7e2fb', '#aab6f3'], ink: '#1f2457' }
 const cardBg = (p) => `linear-gradient(180deg, #f5f5f5 0%, #f5f5f5 36%, ${p.card[0]} 58%, ${p.card[1]} 92%)`
+// Illustrated cards: the painting under a light white veil (and a soft fade at the bottom), over its own base color.
+const cardPaint = (p) => p.img
+  ? `${p.fade ? `linear-gradient(transparent 82%, rgba(255,255,255,${p.fade}) 93%), ` : ''}linear-gradient(rgba(255,255,255,${p.veil ?? 0.3}), rgba(255,255,255,${p.veil ?? 0.3})), url(${p.img}) ${p.imgPos || '50% 50%'}/${p.imgSize || 'cover'} no-repeat, ${p.imgBg || '#fff'}`
+  : cardBg(p)
 
 function PromptCard({ p, level, drag, leaving, ghost, hint, onPointerDown, onPointerMove, onPointerUp }) {
   const top = level === 0
@@ -51,28 +57,33 @@ function PromptCard({ p, level, drag, leaving, ghost, hint, onPointerDown, onPoi
       onLostPointerCapture={top ? onPointerUp : undefined}
       onDragStart={(e) => e.preventDefault()}
       aria-hidden={!top || !!ghost}
-      style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 'calc(100% - 86px)', containerType: 'size', borderRadius: 22, background: cardBg(p), zIndex: ghost ? 20 : 10 - level, transform, transformOrigin: '50% 100%', transition, ...fx, touchAction: 'none', cursor: top ? (drag.active ? 'grabbing' : 'grab') : 'default', boxShadow: top ? '0 18px 40px rgba(29,29,34,.10)' : 'none', overflow: 'hidden', userSelect: 'none' }}
+      style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 'calc(100% - 86px)', containerType: 'size', borderRadius: 22, background: cardPaint(p), zIndex: ghost ? 20 : 10 - level, transform, transformOrigin: '50% 100%', transition, ...fx, touchAction: 'none', cursor: top ? (drag.active ? 'grabbing' : 'grab') : 'default', boxShadow: top ? '0 18px 40px rgba(29,29,34,.10)' : 'none', overflow: 'hidden', userSelect: 'none' }}
     >
-      {/* Slow ambient motion on the front card: the color tide rises and falls, and a soft light drifts through it. */}
-      <span aria-hidden="true" style={{ position: 'absolute', inset: 0, background: cardBg(p), backgroundSize: '100% 118%', backgroundPosition: '50% 0%', animation: top && !ghost ? 'tide 9s ease-in-out infinite alternate' : 'none', pointerEvents: 'none' }} />
-      {top && !ghost ? <span aria-hidden="true" style={{ position: 'absolute', left: '50%', top: '46cqh', width: 320, height: 320, marginLeft: -160, borderRadius: '50%', background: `radial-gradient(circle, rgba(255,255,255,.38) 0%, ${p.card[0]}55 35%, transparent 65%)`, animation: 'glowDrift 14s ease-in-out infinite', pointerEvents: 'none' }} /> : null}
+      {/* Slow ambient motion on the front card: the painting drifts (or the color tide rises and falls), and a soft light moves through it. */}
+      {p.img
+        ? <span aria-hidden="true" style={{ position: 'absolute', inset: '-3%', background: cardPaint(p), animation: top && !ghost ? 'paintDrift 11s ease-in-out infinite alternate' : 'none', pointerEvents: 'none' }} />
+        : <span aria-hidden="true" style={{ position: 'absolute', inset: 0, background: cardBg(p), backgroundSize: '100% 118%', backgroundPosition: '50% 0%', animation: top && !ghost ? 'tide 9s ease-in-out infinite alternate' : 'none', pointerEvents: 'none' }} />}
+      {top && !ghost ? <span aria-hidden="true" style={{ position: 'absolute', left: '50%', top: '46cqh', width: 320, height: 320, marginLeft: -160, borderRadius: '50%', background: `radial-gradient(circle, rgba(255,255,255,${p.img ? 0.26 : 0.38}) 0%, ${p.card[0]}${p.img ? '33' : '55'} 35%, transparent 65%)`, animation: 'glowDrift 14s ease-in-out infinite', pointerEvents: 'none' }} /> : null}
       <span aria-hidden="true" style={{ position: 'absolute', inset: 0, background: '#fff', opacity: top ? 0 : 0.6 + (level - 1) * 0.15, transition: 'opacity .35s ease', pointerEvents: 'none', zIndex: 3 }} />
       {top && (
         <>
+          {/* Frosted bands keep the title and description readable over the painting. */}
+          {p.img ? <div aria-hidden="true" className="pc-blur pc-blur-top" /> : null}
+          {p.img ? <div aria-hidden="true" className={`pc-blur pc-blur-bottom${p.darkBottom ? ' dark' : ''}`} /> : null}
           <div style={{ position: 'absolute', left: 0, right: 0, top: 'min(44px, 9cqh)', textAlign: 'center', padding: '0 20px' }}>
             <h2 style={{ margin: 0, fontFamily: 'var(--serif)', fontWeight: 400, fontSize: 'min(35px, 10cqw)', lineHeight: 1.1, letterSpacing: '-0.02em', color: p.ink }}>
               {p.lead}<br />
               <span style={{ background: `linear-gradient(90deg, ${p.grad[0]}, ${p.grad[1]})`, WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>{p.accentText}</span>
             </h2>
-            <p style={{ margin: '14px 0 0', fontFamily: INTER, fontSize: 15, color: '#9a9a9f' }}>{p.sub}</p>
+            <p style={{ margin: '14px 0 0', fontFamily: INTER, fontSize: 15, color: p.img ? `${p.ink}b3` : '#9a9a9f' }}>{p.sub}</p>
           </div>
-          <div aria-hidden="true" style={{ position: 'absolute', left: '50%', top: '42cqh', width: 'min(212px, 46cqh)', height: 'min(212px, 46cqh)', marginLeft: 'calc(min(212px, 46cqh) / -2)', borderRadius: '50%', background: 'linear-gradient(180deg, rgba(255,255,255,.55) 0%, rgba(255,255,255,.08) 100%)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.7)', animation: 'breathe 7s ease-in-out infinite' }} />
-          {p.category ? (
+          {p.img ? null : <div aria-hidden="true" style={{ position: 'absolute', left: '50%', top: '42cqh', width: 'min(212px, 46cqh)', height: 'min(212px, 46cqh)', marginLeft: 'calc(min(212px, 46cqh) / -2)', borderRadius: '50%', background: 'linear-gradient(180deg, rgba(255,255,255,.55) 0%, rgba(255,255,255,.08) 100%)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.7)', animation: 'breathe 7s ease-in-out infinite' }} />}
+          {!p.img && p.category ? (
           <span style={{ position: 'absolute', left: '50%', top: '64cqh', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,.7)', borderRadius: 14, padding: '5px 11px', fontFamily: INTER, fontSize: 12, color: p.ink, whiteSpace: 'nowrap' }}>
             <Icon name={MODES.find((m) => m.id === p.kind).icon} size={14} />{p.category}
           </span>
           ) : null}
-          <p style={{ position: 'absolute', left: 24, right: 24, bottom: 26, margin: 0, textAlign: 'center', fontFamily: INTER, fontSize: 12.5, lineHeight: 1.45, color: '#fff', textShadow: '0 1px 8px rgba(0,0,0,.08)' }}>{p.desc}</p>
+          <p style={{ position: 'absolute', left: 24, right: 24, bottom: 26, margin: 0, textAlign: 'center', fontFamily: INTER, fontSize: 12.5, lineHeight: 1.45, color: p.img && !p.darkBottom ? p.ink : '#fff', textShadow: p.img ? (p.darkBottom ? '0 1px 8px rgba(0,0,0,.35)' : '0 0 10px rgba(255,255,255,.9)') : '0 1px 8px rgba(0,0,0,.08)' }}>{p.desc}</p>
 
           <span style={{ position: 'absolute', left: 20, top: 20, transform: 'rotate(-10deg)', border: '2px solid #2b8a5e', color: '#2b8a5e', borderRadius: 10, padding: '4px 10px', fontFamily: INTER, fontWeight: 600, fontSize: 15, letterSpacing: '.06em', opacity: yes, background: 'rgba(255,255,255,.8)' }}>ANSWER</span>
           <span style={{ position: 'absolute', right: 20, top: 20, transform: 'rotate(10deg)', border: '2px solid #6b6b72', color: '#6b6b72', borderRadius: 10, padding: '4px 10px', fontFamily: INTER, fontWeight: 600, fontSize: 15, letterSpacing: '.06em', opacity: no, background: 'rgba(255,255,255,.8)' }}>SKIP</span>
@@ -177,26 +188,27 @@ export default function Swipe() {
   }
 
   return (
-    <Screen bg={`radial-gradient(120% 70% at 50% 45%, ${glow} 0%, rgba(255,255,255,0) 62%), #fff`}>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '25px 20px 0', fontFamily: INTER, minHeight: 0, transition: 'background .5s ease' }}>
+    <Screen className="has-nav prompt-screen" bg={`radial-gradient(120% 70% at 50% 45%, ${glow} 0%, rgba(255,255,255,0) 62%), #fff`}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '4px 20px 104px', fontFamily: INTER, minHeight: 0, transition: 'background .5s ease' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '44px 1fr 44px', alignItems: 'center', height: 44 }}>
-          <span style={{ width: 44 }} aria-hidden="true" />
+          <button className="icon-btn" aria-label="Home" onClick={() => go('home')} style={{ background: 'transparent' }}><Icon name="home" size={24} /></button>
           <span style={{ textAlign: 'center', fontSize: 17, fontWeight: 500, color: '#3a3a40' }}>Pick your prompt</span>
           <button className="icon-btn" aria-label="Undo last skip" onClick={undo} disabled={!skipped.length} style={{ background: 'transparent', opacity: skipped.length ? 1 : 0.25 }}><span key={deal.n} style={{ display: 'flex', animation: deal.n ? 'spinBack .55s cubic-bezier(.3,.7,.2,1)' : 'none' }}><Icon name="refresh" size={20} /></span></button>
         </div>
         <div style={{ textAlign: 'center', fontSize: 12, color: '#9a9a9f', marginTop: 2 }}>
-          {done ? 'All caught up' : `${index + 1} of ${PROMPTS.length}`}
+          {done ? 'All caught up' : `${index + 1} of ${PROMPTS.length} · swipe right to answer, left to skip`}
         </div>
 
-        <div style={{ position: 'relative', flex: '1 1 496px', maxHeight: 496, minHeight: 300, marginTop: 'min(24px, 3dvh)' }}>
+        <div style={{ position: 'relative', flex: 1, minHeight: 300, maxHeight: 556, marginTop: 14 }}>
           {done ? (
-            <div style={{ position: 'absolute', inset: '0 0 86px', borderRadius: 22, background: '#f5f5f5', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, padding: 28, textAlign: 'center' }}>
-              <h2 style={{ margin: 0, fontWeight: 500, fontSize: 28, letterSpacing: '-0.02em', color: '#1d1d22' }}>That’s all for<br /><span style={{ color: '#7d8ef0' }}>this week</span></h2>
-              <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: '#8e919c', maxWidth: 260 }}>No prompt is required. Shuffle the deck again, or write whatever’s on your mind.</p>
-              <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
-                <button className="pill small" onClick={shuffle}>Shuffle again</button>
-                <button className="pill ghost small" onClick={() => { setDraft({ promptId: null, kind: 'text', replyTo: null }); go('write') }}>Write freely</button>
+            <div style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 'calc(100% - 86px)', containerType: 'size', borderRadius: 22, overflow: 'hidden', background: cardBg(DONE), boxShadow: '0 18px 40px rgba(29,29,34,.10)', animation: 'dealIn .55s cubic-bezier(.2,.8,.2,1) both', '--deal-r': '-4deg' }}>
+              <span aria-hidden="true" style={{ position: 'absolute', inset: 0, background: cardBg(DONE), backgroundSize: '100% 118%', backgroundPosition: '50% 0%', animation: 'tide 9s ease-in-out infinite alternate', pointerEvents: 'none' }} />
+              <span aria-hidden="true" style={{ position: 'absolute', left: '50%', top: '46cqh', width: 320, height: 320, marginLeft: -160, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,.38) 0%, #e7e2fb55 35%, transparent 65%)', animation: 'glowDrift 14s ease-in-out infinite', pointerEvents: 'none' }} />
+              <div style={{ position: 'absolute', left: 0, right: 0, top: 'min(44px, 9cqh)', textAlign: 'center', padding: '0 20px' }}>
+                <h2 style={{ margin: 0, fontFamily: 'var(--serif)', fontWeight: 400, fontSize: 'min(35px, 10cqw)', lineHeight: 1.1, letterSpacing: '-0.02em', color: DONE.ink }}>That’s all for<br /><span style={{ background: 'linear-gradient(90deg, #5d6fe8, #a184f2)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>this week</span></h2>
+                <p style={{ margin: '14px 0 0', fontFamily: INTER, fontSize: 15, color: '#9a9a9f' }}>every prompt, seen</p>
               </div>
+              <p style={{ position: 'absolute', left: 24, right: 24, bottom: 26, margin: 0, textAlign: 'center', fontFamily: INTER, fontSize: 12.5, lineHeight: 1.45, color: '#fff', textShadow: '0 1px 8px rgba(0,0,0,.08)' }}>No prompt is required. Shuffle the deck again, or write whatever’s on your mind.</p>
             </div>
           ) : (
             [2, 1, 0].map((level) => {
@@ -211,19 +223,25 @@ export default function Swipe() {
           {ghosts.map((g) => <PromptCard key={g.key} p={g.p} level={0} drag={{ dx: 0, dy: 0, active: false }} ghost={g} />)}
         </div>
 
-        <div style={{ display: 'flex', gap: 10, marginTop: 'auto' }}>
+        <div style={{ display: 'flex', gap: 10, marginTop: 12, flexShrink: 0, position: 'relative', zIndex: 7 }}>
+          {done ? (
+            <>
+              <button onClick={shuffle} style={{ flex: 1, height: 50, borderRadius: 25, border: 'none', background: '#2b2b30', color: '#fff', fontFamily: INTER, fontSize: 18, fontWeight: 500 }}>Shuffle again</button>
+              <button onClick={() => { setDraft({ promptId: null, kind: 'text', replyTo: null }); go('write') }} style={{ flex: 1, height: 50, borderRadius: 25, border: 'none', background: '#f0f0f2', color: '#1d1d22', fontFamily: INTER, fontSize: 18, fontWeight: 500 }}>Write freely</button>
+            </>
+          ) : (
+          <>
           <button onClick={() => fly(1)} disabled={done} style={{ flex: 1, height: 50, borderRadius: 25, border: 'none', background: '#2b2b30', color: '#fff', fontFamily: INTER, fontSize: 18, fontWeight: 500, opacity: done ? 0.4 : 1 }}>Answer</button>
           <button onClick={() => fly(-1)} disabled={done} style={{ flex: 1, height: 50, borderRadius: 25, border: 'none', background: '#f0f0f2', color: '#1d1d22', fontFamily: INTER, fontSize: 18, fontWeight: 500, opacity: done ? 0.4 : 1 }}>Skip</button>
+          </>
+          )}
         </div>
-
-        <div style={{ marginTop: 'auto' }} />
       </div>
 
-      <TabBar active="create" />
       {sheet && p && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 30, display: 'flex', alignItems: 'flex-end', fontFamily: INTER }}>
-          <button aria-label="Cancel" onClick={cancelSheet} style={{ position: 'absolute', inset: 0, border: 'none', background: 'rgba(29,29,34,.28)' }} />
-          <div role="dialog" aria-label="Answer with" className="rise" style={{ position: 'relative', width: '100%', background: '#fff', borderRadius: '28px 28px 0 0', padding: '22px 20px 30px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <button aria-label="Cancel" onClick={cancelSheet} className="sheet-scrim" style={{ position: 'absolute', inset: 0, border: 'none', background: 'rgba(29,29,34,.28)' }} />
+          <div role="dialog" aria-label="Answer with" className="sheet-panel" style={{ position: 'relative', width: '100%', background: '#fff', borderRadius: '28px 28px 0 0', padding: '22px 20px 30px', display: 'flex', flexDirection: 'column', gap: 10 }}>
             <span style={{ alignSelf: 'center', width: 40, height: 4, borderRadius: 2, background: '#e2e3e8' }} />
             <h3 style={{ margin: '6px 0 0', fontWeight: 500, fontSize: 20, letterSpacing: '-0.01em', color: p.ink }}>{p.title}</h3>
             <p style={{ margin: '0 0 6px', fontSize: 13, color: '#8e919c' }}>Answer however you like. Every way works.</p>

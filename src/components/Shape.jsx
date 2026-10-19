@@ -1,4 +1,5 @@
 import { useId } from 'react'
+import SCENES from './sceneArt.js'
 
 /**
  * Abstract illustration. Each kind stands for a need or prompt type, so the
@@ -14,6 +15,19 @@ export default function Shape({ look, width = '100%', height = '100%', style }) 
   const id = (s) => `${raw}-${s}`
   const [a, b, c] = look.c
   const common = { width, height, viewBox: '0 0 200 160', preserveAspectRatio: 'xMidYMid slice', 'aria-hidden': true, style: { display: 'block', ...style } }
+
+  // A painted stamp (or any picture) stands in for the abstract shape.
+  if (look.art) return <img src={look.art} alt="" aria-hidden="true" draggable="false" style={{ display: 'block', width, height, objectFit: 'cover', ...style }} />
+  // Home tiles: a small painted scene.
+  if (SCENES[look.shape]) return <svg {...common} dangerouslySetInnerHTML={{ __html: SCENES[look.shape](id) }} />
+  // Onboarding tiles: a picture, or the first frame of a video, framed by pos/tf (or zoom).
+  if (look.shape === 'blank') return <div className="blank-art" style={{ width, height, ...style }} />
+  if (look.shape === 'image') {
+    const frame = { display: 'block', width, height, objectFit: 'cover', objectPosition: look.pos, ...(look.tf ? { transform: look.tf } : look.zoom ? { transform: `scale(${look.zoom})`, transformOrigin: look.zo || '50% 100%' } : {}), ...style }
+    return look.still
+      ? <video src={`${look.src}#t=0.1`} muted playsInline preload="auto" aria-hidden="true" ref={(v) => { if (v) v.muted = true }} style={frame} />
+      : <img src={look.src} alt="" aria-hidden="true" draggable="false" style={frame} />
+  }
 
   if (look.shape === 'grain') {
     return (
