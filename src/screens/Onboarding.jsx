@@ -271,79 +271,12 @@ export function Question({ index }) {
 }
 
 /* ---------- You're all set ---------- */
-// Confetti bursts in from both sides; tapping anywhere throws a little more.
-const CONFETTI = ['#b9a5f3', '#f4a3c4', '#ffb994', '#9fdcbf', '#9cc6f5', '#ffd86b']
-
 export function Celebrate() {
   const { go } = useApp()
-  const ref = useRef(null)
-  const cv = useRef(null)
-  const sim = useRef({ parts: [], raf: 0, last: 0, size: [0, 0] })
-
-  const loop = (t) => {
-    const s = sim.current, c = cv.current
-    if (!c) return
-    const dt = Math.min(2.5, s.last ? (t - s.last) / 16.67 : 1)
-    s.last = t
-    const g = c.getContext('2d'), dpr = window.devicePixelRatio || 1, [W, H] = s.size
-    g.setTransform(dpr, 0, 0, dpr, 0, 0)
-    g.clearRect(0, 0, W, H)
-    s.parts = s.parts.filter((p) => {
-      p.vx *= Math.pow(p.drag, dt)
-      p.vy = p.vy * Math.pow(p.drag, dt) + p.grav * dt
-      if (p.vy > p.term) p.vy = p.term
-      p.ph += p.ws * dt
-      p.x += (p.vx + Math.sin(p.ph) * p.wa) * dt
-      p.y += p.vy * dt
-      p.age += dt
-      const life = p.age / p.max
-      if (life >= 1 || p.y > H + 30) return false
-      const a = life > 0.7 ? 1 - (life - 0.7) / 0.3 : 1, flat = 0.55 + 0.45 * Math.abs(Math.cos(p.ph * 0.8))
-      g.globalAlpha = a
-      g.beginPath()
-      g.ellipse(p.x, p.y, p.r, p.r * flat, 0, 0, Math.PI * 2)
-      if (p.ring) { g.lineWidth = Math.max(1.5, p.r * 0.38); g.strokeStyle = p.c; g.stroke() } else { g.fillStyle = p.c; g.fill() }
-      return true
-    })
-    g.globalAlpha = 1
-    if (s.parts.length) s.raf = requestAnimationFrame(loop)
-    else { s.raf = 0; s.last = 0 }
-  }
-  const burst = (x, y, n, dir, spread, power) => {
-    if (calm()) return
-    const s = sim.current
-    for (let k = 0; k < n; k++) {
-      const ang = dir + (Math.random() - 0.5) * spread, sp = power * (0.45 + Math.random() * 0.75), r = 2.5 + Math.random() * 5.5
-      s.parts.push({ x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, r, c: CONFETTI[(k * 7) % CONFETTI.length], ring: Math.random() < 0.2, drag: 0.965 + Math.random() * 0.02, grav: 0.1 + r * 0.012, term: 1.6 + r * 0.28, ph: Math.random() * 6.3, ws: 0.05 + Math.random() * 0.08, wa: 0.4 + Math.random() * 1.1, age: 0, max: 150 + Math.random() * 110 })
-    }
-    if (!s.raf) s.raf = requestAnimationFrame(loop)
-    if (navigator.vibrate) navigator.vibrate(10)
-  }
-
-  useEffect(() => {
-    const c = cv.current, box = ref.current, dpr = window.devicePixelRatio || 1
-    const fit = () => { const r = box.getBoundingClientRect(); sim.current.size = [r.width, r.height]; c.width = r.width * dpr; c.height = r.height * dpr }
-    fit()
-    window.addEventListener('resize', fit)
-    const [W, H] = sim.current.size
-    const t = [
-      setTimeout(() => { burst(-6, H * 0.82, 70, -Math.PI / 3, 0.7, 17); burst(W + 6, H * 0.82, 70, (-Math.PI * 2) / 3, 0.7, 17) }, 250),
-      setTimeout(() => burst(W / 2, H * 0.34, 46, -Math.PI / 2, Math.PI * 2, 9), 700),
-    ]
-    return () => { t.forEach(clearTimeout); window.removeEventListener('resize', fit); cancelAnimationFrame(sim.current.raf); sim.current.raf = 0 }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const tap = (e) => {
-    if (e.target.closest('button')) return
-    const r = ref.current.getBoundingClientRect()
-    burst(e.clientX - r.left, e.clientY - r.top, 38, -Math.PI / 2, Math.PI * 1.6, 10)
-  }
-
   return (
     <Screen>
-      <div ref={ref} className="celebrate" onPointerDown={tap}>
+      <div className="celebrate">
         <div className="wi-oval" aria-hidden="true" />
-        <canvas ref={cv} className="confetti-canvas" aria-hidden="true" />
         <div className="celebrate-text">
           <Lockup />
           <h1 className="wi-title">Welcome,<br />{NAME}!</h1>
