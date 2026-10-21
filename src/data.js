@@ -12,16 +12,17 @@ export const LOOKS = {
   letters: { shape: 'letters', c: ['#a58cf0', '#ede5fd', '#b8a4f4'] },
   // Onboarding answer tiles: a still image or video frame, with a video that plays once picked.
   // pos/tf frame the tile, video/vpos fill the screen after the pick, wash is the color that floods in.
+  // A tf shift must stay within the zoom so the picture still covers the tile: |shift| ≤ 50% × (scale − 1).
   dusk2: { shape: 'image', still: true, src: S('language-bg.mp4'), pos: '50% 55%', darkLabel: true, video: S('language-bg.mp4'), vpos: '50% 50%', wash: '#f9c6bc', c: ['#f9c6bc', '#fde8e4', '#fff'] },
   sunset: { shape: 'image', still: true, src: S('notsure-bg.mp4'), pos: '50% 80%', darkLabel: true, video: S('notsure-bg.mp4'), vpos: '50% 50%', wash: '#f7c3b4', c: ['#f7c3b4', '#fde6df', '#fff'] },
   horizon: { shape: 'image', still: true, src: S('worry-bg.mp4'), pos: '50% 70%', darkLabel: true, video: S('worry-bg.mp4'), vpos: '50% 50%', wash: '#e3cdfd', c: ['#e3cdfd', '#f3e9fe', '#fff'] },
-  street: { shape: 'image', still: true, src: S('timezone-bg.mp4'), pos: '50% 50%', tf: 'translate(-8%,-49%) scale(1.6)', tileBg: '#4f73ad', video: S('timezone-bg.mp4'), vpos: '60% 50%', wash: '#c3cdee', c: ['#c3cdee', '#e6eaf8', '#fff'] },
-  book: { shape: 'image', still: true, src: S('report-bg.mp4'), pos: '50% 50%', tf: 'translate(-43%,-60%) scale(1.8)', tileBg: '#a9b6b9', video: S('report-bg.mp4'), vpos: '85% 50%', wash: '#c9d3d6', c: ['#c9d3d6', '#e8edee', '#fff'] },
+  street: { shape: 'image', still: true, src: S('timezone-bg.mp4'), pos: '50% 50%', tf: 'translate(-8%,-28%) scale(1.6)', tileBg: '#4f73ad', video: S('timezone-bg.mp4'), vpos: '60% 50%', wash: '#c3cdee', c: ['#c3cdee', '#e6eaf8', '#fff'] },
+  book: { shape: 'image', still: true, src: S('report-bg.mp4'), pos: '50% 50%', tf: 'translate(-38%,-38%) scale(1.8)', tileBg: '#a9b6b9', video: S('report-bg.mp4'), vpos: '85% 50%', wash: '#c9d3d6', c: ['#c9d3d6', '#e8edee', '#fff'] },
   night: { shape: 'image', still: true, src: S('funny-bg.mp4'), pos: '50% 85%', tf: 'translateY(-35%) scale(1.7)', video: S('funny-bg.mp4'), vpos: '50% 50%', wash: '#bfe0e1', c: ['#bfe0e1', '#e3f2f2', '#fff'] },
   shore: { shape: 'image', still: true, src: S('tired-bg.mp4'), pos: '38% 45%', video: S('tired-bg.mp4'), vpos: '40% 50%', wash: '#e6d9cc', c: ['#e6d9cc', '#f5eee7', '#fff'] },
   studio: { shape: 'image', still: true, src: S('working-bg.mp4'), pos: '40% 35%', video: S('working-bg.mp4'), vpos: '0% 50%', wash: '#fae8bf', c: ['#fae8bf', '#fef6d9', '#fff'] },
   prism: { shape: 'image', still: true, src: S('places-bg.mp4'), pos: '50% 50%', tf: 'translateY(-12%) scale(1.25)', video: S('places-bg.mp4'), vpos: '50% 50%', wash: '#eeeaf4', c: ['#eeeaf4', '#f7f5fa', '#fff'] },
-  path: { shape: 'image', src: S('friends-path.webp'), pos: '50% 50%', tf: 'translateY(-80%) scale(2.2)', tileBg: '#c58fd4', video: S('friends-bg.mp4'), vpos: '50% 50%', wash: '#ebd6ef', c: ['#ebd6ef', '#f6ecf8', '#fff'] },
+  path: { shape: 'image', src: S('friends-path.webp'), pos: '50% 50%', tf: 'translateY(-58%) scale(2.2)', tileBg: '#c58fd4', video: S('friends-bg.mp4'), vpos: '50% 50%', wash: '#ebd6ef', c: ['#ebd6ef', '#f6ecf8', '#fff'] },
   star: { shape: 'image', src: S('wins-star.webp'), pos: '50% 40%', tf: 'translateY(-10%) scale(1.2)', video: S('wins-star-bg.mp4'), vpos: '50% 50%', wash: '#e6d3f9', c: ['#e6d3f9', '#f4ebfd', '#fff'] },
   soup: { shape: 'image', still: true, src: S('food-bg.mp4'), pos: '50% 50%', tf: 'translateY(-35%) scale(1.7)', video: S('food-bg.mp4'), vpos: '50% 50%', vshift: '0 -12%', wash: '#f7efd3', c: ['#f4ebb4', '#fbf6dc', '#fff'] },
   orbs: { shape: 'image', src: S('icon-bubbles.webp'), pos: '50% 50%', zoom: 1.45, zo: '50% 100%', video: S('icon-bg.mp4'), vpos: '50% 50%', wash: '#c1dfc0', c: ['#c1dfc0', '#e8f4e6', '#fff'] },
