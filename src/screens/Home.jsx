@@ -10,6 +10,49 @@ const asset = (f) => `${import.meta.env.BASE_URL}stamps/${f}`
 const LANGS = [['English', 'English'], ['Tiếng Việt', 'Vietnamese'], ['Tagalog', 'Tagalog'], ['한국어', 'Korean'], ['中文', 'Chinese'], ['日本語', 'Japanese'], ['Español', 'Spanish']]
 let pulseSent = false
 
+// Phones swipe the prompt row natively; with a mouse, click and drag it sideways.
+// Snapping pauses while dragging, and a drag doesn't count as a tap on the tile underneath.
+function useDragScroll() {
+  const ref = useRef(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    let x0 = 0, left0 = 0, down = false, moved = false
+    const onDown = (e) => {
+      if (e.pointerType !== 'mouse' || e.button !== 0) return
+      down = true; moved = false; x0 = e.clientX; left0 = el.scrollLeft
+    }
+    const onMove = (e) => {
+      if (!down) return
+      const dx = e.clientX - x0
+      if (!moved && Math.abs(dx) > 5) { moved = true; el.style.scrollSnapType = 'none'; el.style.cursor = 'grabbing' }
+      if (moved) el.scrollLeft = left0 - dx
+    }
+    const onUp = () => {
+      if (!down) return
+      down = false
+      if (!moved) return
+      el.style.cursor = ''
+      // Let it settle onto the nearest card, the same as a swipe.
+      const left = el.scrollLeft
+      el.style.scrollSnapType = ''
+      el.scrollLeft = left
+    }
+    const onClick = (e) => { if (moved) { e.stopPropagation(); e.preventDefault(); moved = false } }
+    el.addEventListener('pointerdown', onDown)
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    el.addEventListener('click', onClick, true)
+    return () => {
+      el.removeEventListener('pointerdown', onDown)
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      el.removeEventListener('click', onClick, true)
+    }
+  }, [])
+  return ref
+}
+
 /* ---------- Account sheets: profile, language, notifications ---------- */
 function HomeSheet({ kind, out, close, show, lang, setLang, letters, open, go }) {
   if (!kind) return null
@@ -64,6 +107,7 @@ function HomeSheet({ kind, out, close, show, lang, setLang, letters, open, go })
 /* ---------- Home ---------- */
 export default function Home() {
   const { go, letters, setOpenId, setPromptIndex } = useApp()
+  const promptRow = useDragScroll()
   const unread = letters.filter((x) => x.unread && !x.mine)
   const [sheet, setSheet] = useState(null)
   const [out, setOut] = useState(false)
@@ -115,7 +159,7 @@ export default function Home() {
         </div>
 
         {section('Prompts', () => go('prompt'))}
-        <div className="qp-row">
+        <div className="qp-row" ref={promptRow}>
           {PROMPTS.map((p, k) => (
             <button key={p.id} className="tile qp-tile" style={{ background: `linear-gradient(180deg,#fff 0%,${p.card[1]} 100%)` }} onClick={() => { setPromptIndex(k); go('prompt') }}>
               <div className="qp-art" style={{ backgroundImage: `url(${p.img})`, backgroundColor: p.imgBg }} />

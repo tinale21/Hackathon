@@ -525,7 +525,7 @@ input[type='search']::-webkit-search-cancel-button { -webkit-appearance: none; a
 .home-sec{display:flex;align-items:baseline;justify-content:space-between;margin:8px 0 -8px;flex-shrink:0}
 .home-sec h2{margin:0;font-family:var(--serif);font-weight:400;font-size:26px;letter-spacing:-.015em;color:var(--ink)}
 .home-sec-more{border:none;background:none;padding:4px 0;font:inherit;font-size:15px;color:var(--ink-2);cursor:pointer}
-.qp-row{display:flex;gap:12px;overflow-x:auto;margin:0 -24px;padding:0 24px 4px;scroll-snap-type:x mandatory;scroll-padding:0 24px;scrollbar-width:none;flex-shrink:0}
+.qp-row{display:flex;gap:12px;overflow-x:auto;cursor:grab;margin:0 -24px;padding:0 24px 4px;scroll-snap-type:x mandatory;scroll-padding:0 24px;scrollbar-width:none;flex-shrink:0}
 .qp-row::-webkit-scrollbar{display:none}
 .qp-tile{flex:0 0 132px;min-height:0;aspect-ratio:165/170;scroll-snap-align:start}
 .qp-tile .qp-art{flex:0 0 60%;background-size:cover;background-position:50% 95%;-webkit-mask-image:linear-gradient(to bottom,#000 78%,transparent 100%);mask-image:linear-gradient(to bottom,#000 78%,transparent 100%)}
