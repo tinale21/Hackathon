@@ -98,6 +98,11 @@ export default function App() {
     sentKind, setSentKind,
   }), [route, go, answers, promptIndex, draft, letters, openId, sentKind])
 
+  // When the prototype is embedded (the hackathon website's Demo), tell the page which screen is showing.
+  useEffect(() => {
+    if (window.parent !== window) window.parent.postMessage({ lumenRoute: route }, '*')
+  }, [route])
+
   const Current = SCREENS.find((s) => s.id === route).el
 
   return (
