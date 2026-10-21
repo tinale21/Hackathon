@@ -152,7 +152,7 @@ export function Mail() {
   return (
     <Screen>
       {MAIL_DOTS.map(([x, y, c, d], i) => (
-        <span key={i} aria-hidden="true" style={{ position: 'absolute', left: x, top: y + 130, width: 5, height: 5, borderRadius: 3, background: c, animation: `twinkle 1.8s ease-in-out ${d}s infinite` }} />
+        <span key={i} aria-hidden="true" style={{ position: 'absolute', left: x, top: y + 205, width: 5, height: 5, borderRadius: 3, background: c, animation: `twinkle 1.8s ease-in-out ${d}s infinite` }} />
       ))}
       {phase > 0 ? <button className="skip-tap" aria-label="Skip to the letter" onClick={() => skip.current && skip.current()} /> : null}
       <div className="screen-body">
@@ -160,7 +160,7 @@ export function Mail() {
         <div style={{ opacity: phase >= 4 ? 0 : 1, transition: 'opacity .5s ease' }}>
           <Display sub={`for Audrey, from ${l.from} · ${l.date}`}>New mail</Display>
         </div>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 28, paddingBottom: 150 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 28, paddingBottom: 0 }}>
           <div style={{ position: 'relative' }}>
             <div aria-hidden="true" style={{ position: 'absolute', left: '50%', top: '50%', width: 380, height: 300, margin: '-150px 0 0 -190px', borderRadius: '50%', background: 'radial-gradient(closest-side, rgba(201,184,245,.25), rgba(255,255,255,0))' }} />
             <div ref={envRef} role="img" aria-label={`A sealed ${l.envelope || 'lilac'} envelope from ${l.from}`} style={{ position: 'relative' }}>
