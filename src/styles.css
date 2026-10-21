@@ -537,3 +537,6 @@ input[type='search']::-webkit-search-cancel-button { -webkit-appearance: none; a
 @keyframes pa-ring{0%{transform:scale(1);opacity:.55}100%{transform:scale(1.9);opacity:0}}
 @keyframes pa-twinkle{0%,100%{transform:scale(.7) rotate(0);opacity:.6}50%{transform:scale(1.1) rotate(45deg);opacity:1}}
 @keyframes pa-float{0%,100%{translate:0 0}50%{translate:0 -3px}}
+
+/* At phone width the time is hidden but the signal/battery icons still show; keep them on the right, where iOS puts them. */
+@media (max-width: 760px) { .status { justify-content: flex-end; } }
