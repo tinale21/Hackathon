@@ -486,6 +486,8 @@ const lookOf = (l) => { const st = STAMPS.find((x) => x.id === l.stamp); return 
 // Recap backgrounds move: two big soft glows in the card's colors float slowly behind the content.
 // (They keep moving even with reduce motion on — see .glow-a / .glow-b in styles.css.)
 const DRIFT = { isolation: 'isolate', overflow: 'hidden' }
+// The tab bar floats over the bottom of the feed, so slides run under it and keep their content this far above the bottom.
+const NAV_H = 96
 function Glow({ a, b, faint }) {
   const k = faint ? ['33', '2b'] : ['b3', 'a6']
   const blob = { position: 'absolute', borderRadius: '50%', zIndex: -1, pointerEvents: 'none' }
@@ -600,7 +602,7 @@ function LetterSlide({ l, active, saved, onSave, onReply, h = 764 }) {
   } else if (l.kind === 'voice') {
     const N = 28
     stage = (
-      <div style={{ position: 'absolute', inset: 0, background: soft(look, true), ...DRIFT, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 'min(26px, 3cqh)', padding: '90px clamp(0px, calc(560px - 70cqh), 76px) 160px 0' }}><Glow a={look.c[0]} b={look.c[1]} faint />
+      <div style={{ position: 'absolute', inset: 0, background: soft(look, true), ...DRIFT, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 'min(26px, 3cqh)', padding: `90px clamp(0px, calc(560px - 70cqh), 76px) ${160 + NAV_H}px 0` }}><Glow a={look.c[0]} b={look.c[1]} faint />
         <div style={{ animation: B(active, 'popIn', 0, 0.9), margin: '-20px 0 -24px' }}>
           <div style={{ position: 'relative' }}>
             {l.audio ? <audio ref={sound} src={l.audio} preload="auto" playsInline onEnded={() => { setPaused(true); if (sound.current) sound.current.currentTime = 0 }} /> : null}
@@ -618,7 +620,7 @@ function LetterSlide({ l, active, saved, onSave, onReply, h = 764 }) {
     )
   } else {
     stage = (
-      <div style={{ position: 'absolute', inset: 0, background: soft(look), ...DRIFT, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '96px clamp(28px, calc(440px - 55cqh), 80px) 120px 28px' }}><Glow a={look.c[0]} b={look.c[1]} />
+      <div style={{ position: 'absolute', inset: 0, background: soft(look), ...DRIFT, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: `96px clamp(28px, calc(440px - 55cqh), 80px) ${120 + NAV_H}px 28px` }}><Glow a={look.c[0]} b={look.c[1]} />
         <div style={{ width: '100%' }}>
         <div style={{ '--tilt': '1deg', width: '100%', background: '#fffdf9', borderRadius: 6, padding: '24px 24px 20px', transform: 'rotate(var(--tilt))', boxShadow: '0 30px 60px rgba(29,29,34,.12)', display: 'flex', flexDirection: 'column', gap: 12,
           backgroundImage: 'repeating-linear-gradient(180deg, transparent 0 31px, #f0ece4 31px 32px)', backgroundPosition: '0 58px', animation: B(active, 'dropIn', 0, 0.95) }}>
@@ -639,13 +641,13 @@ function LetterSlide({ l, active, saved, onSave, onReply, h = 764 }) {
       {stage}
 
       {/* right rail */}
-      <div style={{ position: 'absolute', right: 14, bottom: 120, display: 'flex', flexDirection: 'column', gap: 18, alignItems: 'center' }}>
+      <div style={{ position: 'absolute', right: 14, bottom: 120 + NAV_H, display: 'flex', flexDirection: 'column', gap: 18, alignItems: 'center' }}>
         {!l.mine ? <RailButton icon="envelope" label="Write back" onClick={onReply} dark={dark} show={active} delay={0.45} /> : null}
         <RailButton icon="bookmark" label={saved ? 'Saved' : 'Save'} active={saved} onClick={onSave} dark={dark} fill={dark ? '#fff' : 'var(--ink)'} show={active} delay={0.55} />
       </div>
 
       {/* caption block */}
-      <div style={{ position: 'absolute', left: 20, right: 84, bottom: 40, color: fg, display: 'flex', flexDirection: 'column', gap: 8, textShadow: dark ? '0 1px 6px rgba(0,0,0,.35)' : 'none' }}>
+      <div style={{ position: 'absolute', left: 20, right: 84, bottom: 40 + NAV_H, color: fg, display: 'flex', flexDirection: 'column', gap: 8, textShadow: dark ? '0 1px 6px rgba(0,0,0,.35)' : 'none' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, animation: B(active, 'bounceUp', 0.2) }}>
           <Avatar name={who} look={look} dark={dark} />
           <span style={{ fontSize: 15, fontWeight: 600 }}>{who}</span>
@@ -672,7 +674,7 @@ function ChapterSlide({ m, items, active }) {
   const pastel = [look.c[0], '#ffd3e2', look.c[1], '#d9ccfa', '#f6f2ff']
   const voice = items.filter((x) => x.kind === 'voice').length, photos = items.filter((x) => x.kind === 'photo').length
   return (
-    <div style={{ position: 'absolute', inset: 0, background: soft(look), ...DRIFT, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, textAlign: 'center', padding: '0 32px' }}><Glow a={look.c[0]} b={look.c[1]} />
+    <div style={{ position: 'absolute', inset: 0, background: soft(look), ...DRIFT, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, textAlign: 'center', padding: `0 32px ${NAV_H}px` }}><Glow a={look.c[0]} b={look.c[1]} />
       <div aria-hidden="true" style={{ position: 'absolute', right: -80, top: 100, width: 300, height: 300, borderRadius: '50%', opacity: 0.5, ...fadeEdge(22), animation: active ? `${B(true, 'growIn', 0, 1.4)}, drift 14s 1.4s ease-in-out infinite alternate` : 'none' }}><span style={{ position: 'absolute', inset: '-15%', background: holo(pastel), filter: 'blur(26px)' }} /></div>
       <div aria-hidden="true" style={{ position: 'absolute', left: -90, bottom: 90, width: 250, height: 250, borderRadius: '50%', opacity: 0.4, ...fadeEdge(18), animation: B(active, 'growIn', 0.1, 1.4) }}><span style={{ position: 'absolute', inset: '-15%', background: holo(pastel), filter: 'blur(28px)' }} /></div>
       <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
@@ -688,7 +690,7 @@ function ChapterSlide({ m, items, active }) {
 function QuoteSlide({ m, active }) {
   const look = LOOKS[m.look]
   return (
-    <div style={{ position: 'absolute', inset: 0, background: soft(look), ...DRIFT, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0 34px 60px', gap: 18 }}><Glow a={look.c[0]} b={look.c[1]} />
+    <div style={{ position: 'absolute', inset: 0, background: soft(look), ...DRIFT, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: `0 34px ${60 + NAV_H}px`, gap: 18 }}><Glow a={look.c[0]} b={look.c[1]} />
       <span style={{ ...serif, fontSize: 120, lineHeight: 0.6, color: 'rgba(29,29,34,.18)', alignSelf: 'flex-start', animation: B(active, 'popIn', 0, 0.8) }}>“</span>
       <p style={{ ...serif, fontSize: 36, lineHeight: 1.15, letterSpacing: '-0.02em', margin: 0 }}><Mask on={active} delay={0.15}>{m.quote.text}</Mask></p>
       <span style={{ fontSize: 14, color: 'var(--ink-2)', animation: B(active, 'bounceUp', 0.5) }}>— {m.quote.who}</span>
@@ -753,12 +755,12 @@ export function Recap() {
 
   return (
     <section className="screen" style={{ background: '#111', color: dark ? '#fff' : 'var(--ink)', transition: 'color .25s' }}>
-      <div ref={feed} className="scroll" onScroll={onScroll} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 96, zIndex: 0, isolation: 'isolate', scrollSnapType: 'y mandatory', overscrollBehavior: 'contain' }}>
+      <div ref={feed} className="scroll" onScroll={onScroll} style={{ position: 'absolute', inset: 0, zIndex: 0, isolation: 'isolate', scrollSnapType: 'y mandatory', overscrollBehavior: 'contain' }}>
         {slides.map((s, i) => (
           <div key={s.key} style={{ position: 'relative', height: '100%', containerType: 'size', scrollSnapAlign: 'start', scrollSnapStop: 'always', overflow: 'hidden' }}>
             {Math.abs(i - idx) > 2 ? null
               : s.type === 'cover' ? (
-                <div style={{ position: 'absolute', inset: 0, background: HAZE, ...DRIFT, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, textAlign: 'center' }}><Glow a="#bfe3c9" b="#e4efc8" />
+                <div style={{ position: 'absolute', inset: 0, background: HAZE, ...DRIFT, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, textAlign: 'center', paddingBottom: NAV_H }}><Glow a="#bfe3c9" b="#e4efc8" />
                   <span className="label" style={{ animation: B(i === idx, 'popIn', 0, 0.6) }}>Fall 2026</span>
                   <h1 className="display" style={{ fontSize: 54, margin: 0 }} aria-label="Your fall, in letters"><Mask on={i === idx} delay={0.1}>Your fall,</Mask><Mask on={i === idx} delay={0.22}>in letters</Mask></h1>
                   <div style={{ position: 'relative', width: 250, height: 160, margin: '14px 0' }}>
@@ -780,7 +782,7 @@ export function Recap() {
                   <div className="skel-page"><span className="skel skel-paper" aria-hidden="true" /><span className="small">Turning the page…</span></div>
                 </div>
               ) : (
-                <div style={{ position: 'absolute', inset: 0, background: HAZE, ...DRIFT, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, textAlign: 'center', padding: '0 36px' }}><Glow a="#bfe3c9" b="#e4efc8" />
+                <div style={{ position: 'absolute', inset: 0, background: HAZE, ...DRIFT, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, textAlign: 'center', padding: `0 36px ${NAV_H}px` }}><Glow a="#bfe3c9" b="#e4efc8" />
                   <span className="label">You’re all caught up</span>
                   <h2 className="display" style={{ fontSize: 44, margin: 0 }}>To be continued…</h2>
                   <p className="body" style={{ maxWidth: 270, margin: 0 }}>November and December will fill in as letters arrive. The finished book comes at the end of the semester.</p>
@@ -806,7 +808,6 @@ export function Recap() {
       <div aria-hidden="true" style={{ position: 'absolute', right: 5, top: 130, bottom: 210, width: 3, borderRadius: 2, background: dark ? 'rgba(255,255,255,.2)' : 'rgba(29,29,34,.08)', zIndex: 6 }}>
         <span style={{ position: 'absolute', left: 0, right: 0, top: 0, height: `${((idx + 1) / slides.length) * 100}%`, borderRadius: 2, background: dark ? '#fff' : 'var(--ink)', transition: 'height .3s' }} />
       </div>
-      <div aria-hidden="true" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 96, background: '#fff', zIndex: 5 }} />
       <AppNav />
     </section>
   )
