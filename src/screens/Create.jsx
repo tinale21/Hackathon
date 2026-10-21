@@ -162,18 +162,19 @@ export function Capture() {
   const [flash, setFlash] = useState(0)
   const snap = (withFlash) => { setTaken(true); if (withFlash) setFlash((f) => f + 1) }
 
-  // Real camera on phones: a live view in the frame, the shutter grabs a still from it.
-  // If the browser won't share the camera (some in-app browsers, embedded previews), the shutter opens the phone's own camera instead.
-  // Computers keep the sample photo so a demo doesn't trigger a webcam prompt.
+  // Real camera: a live view in the frame, the shutter grabs a still from it. Phones use the back camera;
+  // computers use the webcam, mirrored like a selfie. If the browser won't share the camera (some in-app browsers,
+  // embedded previews, or the person said no), phones open their own camera app and computers use the sample photo.
   const isPhone = typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(pointer: coarse)').matches
   const video = useRef(null)
   const stream = useRef(null)
   const nativeCam = useRef(null)
   const [live, setLive] = useState(false)
-  const [facing, setFacing] = useState('environment')
+  const [facing, setFacing] = useState(isPhone ? 'environment' : 'user')
+  const [camOff, setCamOff] = useState(false)
   useEffect(() => {
     const stop = () => { if (stream.current) { stream.current.getTracks().forEach((t) => t.stop()); stream.current = null } setLive(false) }
-    if (mode !== 'photo' || taken || !isPhone || !(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) { stop(); return }
+    if (mode !== 'photo' || taken || !(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) { stop(); return }
     let cancelled = false
     navigator.mediaDevices.getUserMedia({ video: { facingMode: facing, width: { ideal: 1600 }, height: { ideal: 1600 } }, audio: false })
       .then((st) => {
@@ -181,19 +182,19 @@ export function Capture() {
         stream.current = st
         if (video.current) { video.current.srcObject = st; video.current.play().catch(() => {}) }
         setLive(true)
+        setCamOff(false)
       })
-      .catch(() => setLive(false))
+      .catch(() => { setLive(false); setCamOff(true) })
     return () => { cancelled = true; stop() }
-  }, [mode, taken, facing, isPhone])
+  }, [mode, taken, facing])
   const shoot = () => {
     const v = video.current
     if (live && v && v.videoWidth) {
       const k = Math.min(1, 1200 / Math.max(v.videoWidth, v.videoHeight))
       const c = document.createElement('canvas')
       c.width = Math.round(v.videoWidth * k); c.height = Math.round(v.videoHeight * k)
-      const ctx = c.getContext('2d')
-      if (facing === 'user') { ctx.translate(c.width, 0); ctx.scale(-1, 1) }
-      ctx.drawImage(v, 0, 0, c.width, c.height)
+      // The selfie preview is mirrored, but the photo is saved the right way round (like a phone camera), so text reads correctly.
+      c.getContext('2d').drawImage(v, 0, 0, c.width, c.height)
       setPicked(c.toDataURL('image/jpeg', 0.85))
       snap(true)
     } else if (isPhone && nativeCam.current) {
@@ -222,7 +223,7 @@ export function Capture() {
                   <video ref={video} playsInline muted autoPlay aria-label="Camera view" style={{ display: live ? 'block' : 'none', width: '100%', height: '100%', objectFit: 'cover', borderRadius: 28, background: '#111', transform: facing === 'user' ? 'scaleX(-1)' : 'none' }} />
                   {live ? null : <Placeholder label="Camera view" style={{ height: '100%', borderRadius: 28 }} />}
                   <div className={live ? 'brackets' : 'brackets dark'}><i /><i /><i /><i /></div>
-                  {live ? <button aria-label="Switch camera" onClick={() => setFacing((f) => (f === 'user' ? 'environment' : 'user'))} style={{ position: 'absolute', right: 14, top: 14, width: 40, height: 40, borderRadius: 20, border: 'none', background: 'rgba(29,29,34,.45)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)' }}><Icon name="refresh" size={18} /></button> : null}
+                  {live && isPhone ? <button aria-label="Switch camera" onClick={() => setFacing((f) => (f === 'user' ? 'environment' : 'user'))} style={{ position: 'absolute', right: 14, top: 14, width: 40, height: 40, borderRadius: 20, border: 'none', background: 'rgba(29,29,34,.45)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)' }}><Icon name="refresh" size={18} /></button> : null}
                 </>}
             {flash ? <span key={flash} aria-hidden="true" style={{ position: 'absolute', inset: 0, borderRadius: 28, background: '#fff', animation: 'crackFlash .45s ease-out both', pointerEvents: 'none' }} /> : null}
           </div>
@@ -235,7 +236,7 @@ export function Capture() {
             </span>
           </div>
         )}
-        <p className="small" style={{ textAlign: 'center' }}>{mode === 'photo' ? 'Mess is welcome. This isn’t proof, just a peek.' : micOff ? 'The microphone is off, so this is a pretend recording. Allow the microphone for this site to record your voice.' : rec && !micLive ? 'Starting the microphone…' : 'Talk like you would on the phone. A minute is plenty.'}</p>
+        <p className="small" style={{ textAlign: 'center' }}>{mode === 'photo' ? (camOff && !isPhone ? 'The camera is off, so the shutter uses a sample photo. Allow the camera for this site to use your own.' : 'Mess is welcome. This isn’t proof, just a peek.') : micOff ? 'The microphone is off, so this is a pretend recording. Allow the microphone for this site to record your voice.' : rec && !micLive ? 'Starting the microphone…' : 'Talk like you would on the phone. A minute is plenty.'}</p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center' }}>
           {mode === 'photo' && taken ? null : <span />}
           {mode === 'photo' && taken ? (
